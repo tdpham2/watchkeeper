@@ -6,13 +6,49 @@ Last updated: 2026-10-28.
 
 - Repository: https://github.com/tdpham2/watchkeeper
 - Local checkout: `/Users/tpham2/work/projects/watchkeeper`.
-- Implementation branch: `feature/package-scaffold`.
+- Implementation branch: `feature/campaign-config`, based on merged PR1 at
+  `74b9bab` on `main`.
 - [PR #1: package scaffold and CI](https://github.com/tdpham2/watchkeeper/pull/1)
-  is implemented and open for review; it has not been merged.
-- `main` contains the documentation-only bootstrap (`2000c2f`). The complete
-  [design](design.md) and [26-PR roadmap](implementation-plan.md) are saved here.
-- No campaign execution behavior is implemented yet. Only CLI help/version
-  and the independent package/development infrastructure are available.
+  merged on 2026-10-28; all four Linux/macOS Python 3.11/3.13 CI jobs passed.
+- [PR #2: campaign configuration](https://github.com/tdpham2/watchkeeper/pull/2)
+  implements roadmap increment 2a and is open for review, not merged:
+  strict campaign configuration and read-only `watchkeeper validate`.
+- The [design](design.md) documents the supported schema; the
+  [roadmap](implementation-plan.md) splits configuration into 2a/2b.
+- Early ChemGraph integration is now the next priority after 2a: a separate CG1
+  contract-probe PR, before 2b. The plan is documented; no harness or actual
+  ChemGraph integration test has been implemented or run yet.
+- No campaign execution behavior is implemented. Available commands are
+  help/version and campaign configuration validation only.
+
+## Configuration verification (2a)
+
+Local verification on macOS completed successfully:
+
+- Ruff passed; Python 3.11.13 and 3.13.2 each passed 119 tests.
+- Source distribution and wheel built with `python -m build`. The shared test
+  fixture is explicitly included in the source archive.
+- A fresh `.venv-wheel-config` environment installed the wheel and test extras
+  without ChemGraph. All 119 tests from the extracted source archive passed
+  against that wheel outside the checkout.
+- Wheel help/version and the README's `validate` example passed outside the
+  checkout, creating no campaign state; `find_spec("chemgraph")` returned `None`.
+- Dependency checks passed for both editable environments and the clean wheel
+  environment. Local documentation links/code fences and `git diff --check`
+  passed.
+
+Validation reads only `campaign.toml`. It checks no target/template files,
+credentials, installed adapters, approval, or execution readiness. Wake/stop
+sections are rejected until their lifecycle/event/scheduling increments.
+Credential checks cover documented variable names; environment construction and
+runtime enforcement remain future work. No live LLM/HPC services were used.
+
+Consult the [PR2 checks](https://github.com/tdpham2/watchkeeper/pull/2/checks) for
+current remote Linux/macOS Python 3.11/3.13 results; the evidence above is local.
+
+The CG1 planning update was checked against the pinned ChemGraph CLI, MCP client,
+and custom model-endpoint source. Documentation links, anchors, code fences, and
+`git diff --check` passed. This was source inspection, not an installed-CLI run.
 
 ## PR1 verification
 
@@ -29,20 +65,32 @@ Local verification on macOS completed successfully:
 - Documentation links and code fences were checked, and `git diff --check`
   passed.
 
-The [PR checks](https://github.com/tdpham2/watchkeeper/pull/1/checks) exercise
-Linux/macOS with Python 3.11 and 3.13. Consult that page for the current remote
-results; the local results above do not claim Linux execution.
+The [PR1 checks](https://github.com/tdpham2/watchkeeper/pull/1/checks) passed on
+Linux/macOS with Python 3.11 and 3.13. The configuration results above are local
+macOS results; they do not claim Linux execution of increment 2a.
 
 ## Continue here next time
 
 Open this repository directly and read `AGENTS.md`. The editable development
-environment is `.venv`; `.venv-313` and `.venv-wheel` are local verification
-environments, all ignored by Git.
+environment is `.venv`; `.venv-313`, `.venv-wheel`, and `.venv-wheel-config` are
+local verification environments, all ignored by Git.
 
-Review PR1 and resolve any CI/review findings. After PR1 is merged, branch from
-current `main` for roadmap PR2: campaign, target, template, action, and adapter
-capability contracts, with `init`/`validate` and hermetic validation tests.
-Do not start submission or adapter execution before their safety dependencies.
+Review and merge PR2/increment 2a, then branch from current `main` for **CG1**:
+the developer-only ChemGraph CLI/MCP contract probe described in the design.
+Use fake CLIs in ordinary tests; provide an opt-in real installed ChemGraph run
+against a loopback fake model and diagnostic MCP server. Verify tool isolation,
+proposal payloads, reconnect identity, actual model-request counts, and bounded
+exit/timeout behavior. No live provider, HPC credentials, campaign execution, or
+ChemGraph checkout is required. Record actual-CLI evidence separately from fake
+test results; CLI or request-bound incompatibilities remain explicit blockers
+for the production adapter.
+
+Then complete 2b (target/template/action contracts, `init`, expanded `validate`)
+before ledger increment 3. Keep core increments 3–18 intact; implement production
+ChemGraph adapter 20 after 18 and before Claude adapter 19. Stop-rule fields
+belong to 11; wake-trigger fields belong to 12/16. The first live HPC pilot stays
+at 26. The early diagnostic probe grants no campaign execution or recovery
+guarantees and cannot bypass the runtime safety dependencies.
 
 ## Decisions to preserve
 
