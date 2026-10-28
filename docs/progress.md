@@ -2,33 +2,56 @@
 
 Last updated: 2026-10-28.
 
-## Repository bootstrap
+## Current handoff
 
 - Repository: https://github.com/tdpham2/watchkeeper
-- Local checkout requested by the maintainer: `../watchkeeper` beside ChemGraph.
-- The documentation-only initial commit establishes `main`.
-- The [design](design.md) and complete [implementation roadmap](implementation-plan.md)
-  have been carried into this standalone repository.
-- No campaign execution behavior is implemented yet.
+- Local checkout: `/Users/tpham2/work/projects/watchkeeper`.
+- Implementation branch: `feature/package-scaffold`.
+- [PR #1: package scaffold and CI](https://github.com/tdpham2/watchkeeper/pull/1)
+  is implemented and open for review; it has not been merged.
+- `main` contains the documentation-only bootstrap (`2000c2f`). The complete
+  [design](design.md) and [26-PR roadmap](implementation-plan.md) are saved here.
+- No campaign execution behavior is implemented yet. Only CLI help/version
+  and the independent package/development infrastructure are available.
 
-## Next step
+## PR1 verification
 
-Implement roadmap PR1 on `feature/package-scaffold`: packaging, CLI help/version,
-independent tests, distribution verification, and Linux/macOS CI. Do not expose
-submission or campaign commands before their safety dependencies land.
+Local verification on macOS completed successfully:
+
+- `.venv/bin/ruff check .`.
+- Python 3.11.13: 10 tests passed.
+- Python 3.13.2: 10 tests passed.
+- Source distribution and wheel built with `python -m build`.
+- Dependency checks passed for both editable environments and a clean wheel
+  environment, with no ChemGraph dependency.
+- Wheel import, `watchkeeper --version`, and `python -m watchkeeper --help`
+  worked outside the checkout; `find_spec("chemgraph")` returned `None`.
+- Documentation links and code fences were checked, and `git diff --check`
+  passed.
+
+The [PR checks](https://github.com/tdpham2/watchkeeper/pull/1/checks) exercise
+Linux/macOS with Python 3.11 and 3.13. Consult that page for the current remote
+results; the local results above do not claim Linux execution.
+
+## Continue here next time
+
+Open this repository directly and read `AGENTS.md`. The editable development
+environment is `.venv`; `.venv-313` and `.venv-wheel` are local verification
+environments, all ignored by Git.
+
+Review PR1 and resolve any CI/review findings. After PR1 is merged, branch from
+current `main` for roadmap PR2: campaign, target, template, action, and adapter
+capability contracts, with `init`/`validate` and hermetic validation tests.
+Do not start submission or adapter execution before their safety dependencies.
 
 ## Decisions to preserve
 
-- Keep all Watchkeeper development in this repository, with no required
-  ChemGraph edits or runtime imports.
+- All Watchkeeper development belongs here; no ChemGraph edits or core imports.
 - Linux/macOS first; Windows headless recovery is a separate follow-up.
-- Use small PRs into Watchkeeper `main`; experimental status remains until the
-  end-to-end simulated campaign and user-run Polaris pilot pass.
-- Do not publish to PyPI as part of this series.
-
-## Verification
-
-Bootstrap is documentation only. Runtime tests begin with PR1. Source references
-were inspected against ChemGraph commit
-`855e3756856e49aa4326937e552840acd5ebdaf9`; external service and adapter behavior
-still requires the contract and live checks specified in the roadmap.
+- One focused implementation PR at a time, approximately 400 changed lines
+  where practical. Experimental status remains until the simulated campaign
+  and user-run Polaris pilot pass.
+- No PyPI publication or live LLM/HPC tests as part of package scaffolding.
+- ChemGraph source links are pinned to
+  `855e3756856e49aa4326937e552840acd5ebdaf9`. External adapter/service assumptions
+  still need the later contract and live checks specified in the roadmap.
