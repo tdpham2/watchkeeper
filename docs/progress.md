@@ -15,6 +15,9 @@ Last updated: 2026-10-28.
   strict campaign configuration and read-only `watchkeeper validate`.
 - The [design](design.md) documents the supported schema; the
   [roadmap](implementation-plan.md) splits configuration into 2a/2b.
+- Early ChemGraph integration is now the next priority after 2a: a separate CG1
+  contract-probe PR, before 2b. The plan is documented; no harness or actual
+  ChemGraph integration test has been implemented or run yet.
 - No campaign execution behavior is implemented. Available commands are
   help/version and campaign configuration validation only.
 
@@ -43,6 +46,10 @@ runtime enforcement remain future work. No live LLM/HPC services were used.
 Consult the [PR2 checks](https://github.com/tdpham2/watchkeeper/pull/2/checks) for
 current remote Linux/macOS Python 3.11/3.13 results; the evidence above is local.
 
+The CG1 planning update was checked against the pinned ChemGraph CLI, MCP client,
+and custom model-endpoint source. Documentation links, anchors, code fences, and
+`git diff --check` passed. This was source inspection, not an installed-CLI run.
+
 ## PR1 verification
 
 Local verification on macOS completed successfully:
@@ -68,11 +75,22 @@ Open this repository directly and read `AGENTS.md`. The editable development
 environment is `.venv`; `.venv-313`, `.venv-wheel`, and `.venv-wheel-config` are
 local verification environments, all ignored by Git.
 
-Review and merge increment 2a before branching from current `main` for roadmap
-2b: target/template/action contracts, `init`, and expanded `validate`, with
-hermetic tests. Complete 2b before ledger increment 3. Stop-rule fields belong
-to increment 11; wake-trigger fields belong to 12/16. Do not start submission or
-adapter execution before their safety dependencies.
+Review and merge PR2/increment 2a, then branch from current `main` for **CG1**:
+the developer-only ChemGraph CLI/MCP contract probe described in the design.
+Use fake CLIs in ordinary tests; provide an opt-in real installed ChemGraph run
+against a loopback fake model and diagnostic MCP server. Verify tool isolation,
+proposal payloads, reconnect identity, actual model-request counts, and bounded
+exit/timeout behavior. No live provider, HPC credentials, campaign execution, or
+ChemGraph checkout is required. Record actual-CLI evidence separately from fake
+test results; CLI or request-bound incompatibilities remain explicit blockers
+for the production adapter.
+
+Then complete 2b (target/template/action contracts, `init`, expanded `validate`)
+before ledger increment 3. Keep core increments 3–18 intact; implement production
+ChemGraph adapter 20 after 18 and before Claude adapter 19. Stop-rule fields
+belong to 11; wake-trigger fields belong to 12/16. The first live HPC pilot stays
+at 26. The early diagnostic probe grants no campaign execution or recovery
+guarantees and cannot bypass the runtime safety dependencies.
 
 ## Decisions to preserve
 

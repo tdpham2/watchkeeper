@@ -18,7 +18,8 @@ to the inspected ChemGraph commit, so that checkout is not required.
 
 - Package/import/CLI name: `watchkeeper` (not published to PyPI by this series).
 - Initial real backend: IRI on Polaris.
-- Initial outside headless adapter: Claude Code; ChemGraph is a separate CLI adapter.
+- First external integration target: ChemGraph, starting with an isolated contract
+  probe; its production headless adapter precedes the separate Claude Code adapter.
 - Initial platforms: Linux/macOS. Windows headless containment is deferred.
 - Both interactive sessions and autonomous wakes are in the first release.
 
@@ -381,11 +382,75 @@ There is no submit tool.
     - Spend is recorded from the reported `total_cost_usd`, including any overshoot. If the cost is unknown (an interrupted wake or unparseable output), the wake is recorded at `max_usd_per_wake` and flagged `cost_unknown`.
     - Overshoot and unknown costs are shown in `status` and notified. The README states that `llm_usd` can be exceeded by roughly one turn's cost.
 - **ChemGraph:**
+  - Verify the CLI/MCP contract early in CG1, below. Integrate the production
+    adapter in roadmap 20 after the runtime/recovery milestone 18, before Claude
+    Code in 19. The probe is not a production adapter.
   - `chemgraph run --workflow single_agent --recursion-limit N --mcp-command "watchkeeper mcp --campaign DIR <wake attachment arguments>" -q …`. Here `N = max_turns` is a conservative graph-step cap, not a claim that graph steps equal model turns. Use unstructured output without report generation, and test that model calls remain within the bound. The MCP command carries the existing wake identity/token explicitly; it must not rely on arbitrary environment forwarding by the ChemGraph MCP client.
   - `single_agent`, because headless `main_agent` rejects MCP tools (`HEADLESS_TOOLS_ERROR`, [src/chemgraph/cli/main.py:752-754](https://github.com/argonne-lcf/ChemGraph/blob/855e3756856e49aa4326937e552840acd5ebdaf9/src/chemgraph/cli/main.py)). With MCP tools given, `single_agent` uses only those tools ([graphs/single_agent.py:504](https://github.com/argonne-lcf/ChemGraph/blob/855e3756856e49aa4326937e552840acd5ebdaf9/src/chemgraph/graphs/single_agent.py)).
   - `billing = "free"` (Argo) passes the Argo variables the model loader reads. `billing = "api"` passes the named provider key.
   - LLM cost is recorded as `unmetered` until ChemGraph reports usage headlessly. That is a ChemGraph follow-up. Like every adapter, it is capped by `max_wakes`.
 - **Scripted** (tests only): a deterministic policy that calls `propose_actions`.
+
+### Early ChemGraph contract probe (CG1)
+
+Planned next after configuration increment 2a; not currently implemented. Add
+`tools/chemgraph_contract.py` with test fixtures outside the package runtime.
+It accepts an explicit installed ChemGraph executable; never import ChemGraph
+in Watchkeeper, require its checkout, auto-install it, or expose a new installed
+`watchkeeper` command. Ordinary CI exercises fake executables, the diagnostic
+MCP server, and the local model fixture. Running the real CLI is a separate,
+explicit opt-in on Linux/macOS.
+
+**Real CLI, fake services.** Launch unstructured `single_agent`, without report
+generation or human-supervised tools, using an explicit probe configuration,
+model name, `--base-url`, `--recursion-limit`, and `--mcp-command`. Use a fresh
+scratch directory and HOME, a minimal environment, and no real credentials.
+Bind the fake OpenAI-compatible model endpoint to loopback on an ephemeral port;
+use only a dummy key. Never fall back to a real provider or another workflow.
+The pinned [custom endpoint implementation](https://github.com/argonne-lcf/ChemGraph/blob/855e3756856e49aa4326937e552840acd5ebdaf9/src/chemgraph/models/endpoints/vllm.py)
+supports an otherwise unknown model with an explicit base URL. Verify installed
+CLI flags before the probe; record unsupported behavior as incompatibility.
+
+**Diagnostic MCP only.** Expose fixture `get_brief` and `propose_actions` tools;
+the scripted model reads the brief and proposes a harmless `note` with a required
+request ID. Record the exact payload and return a diagnostic acknowledgement,
+never an approval/disposition. Use a fixed probe schema, clearly separate from
+production action validation until 2b lands. The fixture has no campaign path,
+database, backend, dispatcher, token cache, or submission code. It records only
+probe artifacts; duplicate calls are observations, not a substitute request
+journal. Serialize launch arguments as data, use subprocess argv without a
+shell, and quote the MCP command's argv for ChemGraph's `shlex.split` parsing.
+
+**Reconnects.** Pass a unique probe identity explicitly in the MCP command and
+retain diagnostic observations across server processes. Check discovery and
+tool calls after EOF/reconnection all carry that identity. This checks the
+[ChemGraph MCP client's](https://github.com/argonne-lcf/ChemGraph/blob/855e3756856e49aa4326937e552840acd5ebdaf9/src/chemgraph/cli/mcp_utils.py)
+transport behavior; it does not create or recover a real wake, consume wake
+allowances, or demonstrate token fencing/request replay. Those remain runtime
+tests in 6, 15–18, and 20.
+
+**Acceptance scenarios.** The fake model captures every request and tool schema,
+returns scripted tool calls, and supports success, continued tool-loop, and
+provider-error responses. Assert that only the diagnostic MCP tools reach the
+model, the expected proposal reaches the fixture, and EOF/reconnects preserve
+probe identity. Inspect actual provider-request counts, including retries and
+error paths: passing `--recursion-limit N` alone does not prove a model-call
+bound. Report any excess or unobservable count as an unresolved adapter blocker;
+never weaken the production bound to make the probe pass. Include missing CLI,
+unsupported flags, malformed tool arguments, failed MCP startup, nonzero exit,
+and timeout/cleanup cases. Bound each case with a foreground timeout and POSIX
+child-group cleanup; durable crash recovery still belongs to 17.
+
+**Evidence and promotion.** Save a concise local result with executable/version
+or commit provenance, flags, observed tool names, proposal/reconnect checks,
+request counts, exit/timeout outcome, and compatibility failures. Keep artifacts
+credential-free and out of source control; record a sanitized summary in
+`docs/progress.md`. Distinguish harness-only, real-CLI/fake-model, and later
+user-run live-provider results. A fake-CLI pass proves only the harness, and a
+real-CLI/fake-model pass proves neither provider authentication nor campaign
+durability. At 20, reuse the verified launch/transport contracts in the runtime
+adapter and replace diagnostic fixtures with the real wake journal and MCP
+server. Do not maintain the harness as an alternative campaign runner.
 
 **Notifier:** `log` plus a generic `command` notifier (runs a user script, e.g. a Discord webhook `curl`). Dedicated Discord or Slack adapters come later. Messages say what is needed: pending approvals with their exact commands, a batch summary, and, for interactive campaigns, "resume with: continue campaign <name>".
 
