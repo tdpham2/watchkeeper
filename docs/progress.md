@@ -6,13 +6,38 @@ Last updated: 2026-10-28.
 
 - Repository: https://github.com/tdpham2/watchkeeper
 - Local checkout: `/Users/tpham2/work/projects/watchkeeper`.
-- Implementation branch: `feature/package-scaffold`.
+- Implementation branch: `feature/campaign-config`, based on merged PR1 at
+  `74b9bab` on `main`.
 - [PR #1: package scaffold and CI](https://github.com/tdpham2/watchkeeper/pull/1)
-  is implemented and open for review; it has not been merged.
-- `main` contains the documentation-only bootstrap (`2000c2f`). The complete
-  [design](design.md) and [26-PR roadmap](implementation-plan.md) are saved here.
-- No campaign execution behavior is implemented yet. Only CLI help/version
-  and the independent package/development infrastructure are available.
+  merged on 2026-10-28; all four Linux/macOS Python 3.11/3.13 CI jobs passed.
+- Roadmap increment 2a is implemented and locally verified, ready for review:
+  strict campaign configuration and read-only `watchkeeper validate`.
+- The [design](design.md) documents the supported schema; the
+  [roadmap](implementation-plan.md) splits configuration into 2a/2b.
+- No campaign execution behavior is implemented. Available commands are
+  help/version and campaign configuration validation only.
+
+## Configuration verification (2a)
+
+Local verification on macOS completed successfully:
+
+- Ruff passed; Python 3.11.13 and 3.13.2 each passed 119 tests.
+- Source distribution and wheel built with `python -m build`. The shared test
+  fixture is explicitly included in the source archive.
+- A fresh `.venv-wheel-config` environment installed the wheel and test extras
+  without ChemGraph. All 119 tests from the extracted source archive passed
+  against that wheel outside the checkout.
+- Wheel help/version and the README's `validate` example passed outside the
+  checkout, creating no campaign state; `find_spec("chemgraph")` returned `None`.
+- Dependency checks passed for both editable environments and the clean wheel
+  environment. Local documentation links/code fences and `git diff --check`
+  passed.
+
+Validation reads only `campaign.toml`. It checks no target/template files,
+credentials, installed adapters, approval, or execution readiness. Wake/stop
+sections are rejected until their lifecycle/event/scheduling increments.
+Credential checks cover documented variable names; environment construction and
+runtime enforcement remain future work. No live LLM/HPC services were used.
 
 ## PR1 verification
 
@@ -29,20 +54,21 @@ Local verification on macOS completed successfully:
 - Documentation links and code fences were checked, and `git diff --check`
   passed.
 
-The [PR checks](https://github.com/tdpham2/watchkeeper/pull/1/checks) exercise
-Linux/macOS with Python 3.11 and 3.13. Consult that page for the current remote
-results; the local results above do not claim Linux execution.
+The [PR1 checks](https://github.com/tdpham2/watchkeeper/pull/1/checks) passed on
+Linux/macOS with Python 3.11 and 3.13. The configuration results above are local
+macOS results; they do not claim Linux execution of increment 2a.
 
 ## Continue here next time
 
 Open this repository directly and read `AGENTS.md`. The editable development
-environment is `.venv`; `.venv-313` and `.venv-wheel` are local verification
-environments, all ignored by Git.
+environment is `.venv`; `.venv-313`, `.venv-wheel`, and `.venv-wheel-config` are
+local verification environments, all ignored by Git.
 
-Review PR1 and resolve any CI/review findings. After PR1 is merged, branch from
-current `main` for roadmap PR2: campaign, target, template, action, and adapter
-capability contracts, with `init`/`validate` and hermetic validation tests.
-Do not start submission or adapter execution before their safety dependencies.
+Review and merge increment 2a before branching from current `main` for roadmap
+2b: target/template/action contracts, `init`, and expanded `validate`, with
+hermetic tests. Complete 2b before ledger increment 3. Stop-rule fields belong
+to increment 11; wake-trigger fields belong to 12/16. Do not start submission or
+adapter execution before their safety dependencies.
 
 ## Decisions to preserve
 

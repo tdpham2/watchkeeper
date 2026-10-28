@@ -10,13 +10,13 @@ ChemGraph or depend on a particular agent or scientific domain.
 
 ## Development status
 
-The package skeleton provides `watchkeeper --help` and `watchkeeper --version`.
+The package provides help/version and read-only campaign configuration validation.
 Campaign execution is not implemented. There is no supported PyPI release.
 Linux and macOS are the initial execution targets; Windows headless process
 recovery is deferred.
 
 - [Design](docs/design.md): behavior, interfaces, and safety invariants.
-- [Implementation plan](docs/implementation-plan.md): 26 focused implementation PRs.
+- [Implementation plan](docs/implementation-plan.md): focused implementation increments.
 - [Progress](docs/progress.md): completed work, verification, and the next step.
 - [Agent guidance](AGENTS.md): instructions for working directly in this repo.
 
@@ -26,6 +26,39 @@ The intended headless adapters expose only Watchkeeper MCP tools and use a
 scrubbed environment. This is an application boundary, not an OS sandbox.
 Interactive sessions retain their host tools and credentials: guarantees cover
 only work routed through Watchkeeper. The planned hook guard is a tripwire.
+
+## Validate campaign configuration
+
+Create a directory with this minimal `campaign.toml`:
+
+```toml
+goal = "Explore a small campaign"
+
+[budget]
+node_hours = 1.25
+
+[envelope]
+templates = ["example"]
+queues = ["debug"]
+max_nodes = 1
+max_walltime_s = 600
+max_concurrent_jobs = 1
+max_actions_per_wake = 4
+
+[backend]
+kind = "simulated"
+```
+
+Run `watchkeeper validate --campaign DIR`, or `watchkeeper validate` from that
+directory. Success exits 0; configuration/read errors exit 2 with diagnostics
+on stderr. The command reads only `campaign.toml` and creates no state. It does
+not check templates, approval, credentials, installed adapters, or execution
+readiness. No target or template files are needed for this validation step.
+
+The [configuration contract](docs/design.md#implemented-campaign-configuration-roadmap-2a)
+lists all supported fields, defaults, and billing restrictions. Unknown fields,
+including `[wake]` and `[stop]`, are rejected. `init`, target/template/action
+validation, and campaign execution remain future increments.
 
 ## Development
 

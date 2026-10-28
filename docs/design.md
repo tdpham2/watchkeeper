@@ -86,7 +86,7 @@ A human is not in the loop for each job. An LLM never certifies results.
 - `[envelope]`: allowed `templates`, `max_nodes`, `max_walltime_s`, `queues`, `max_concurrent_jobs`, `max_actions_per_wake`.
 - `[stop]`: stopping rules.
 - `[agent]`:
-  - `adapter` (optional; with no adapter, wake triggers only notify the human), model, `max_turns`, timeout;
+  - `adapter` (optional; with no adapter, wake triggers only notify the human), model, `max_turns`, `timeout_s`;
   - `billing = "api" | "subscription" | "free"` and `max_wakes` (both required when an adapter is set);
   - optional `max_usd_per_wake` and `max_wakes_per_day` (the latter protects a subscription's interactive quota);
   - optional `env_passthrough`, a list of extra variable names copied into the adapter environment, e.g. `ANTHROPIC_BASE_URL` and `ANTHROPIC_CUSTOM_HEADERS` for a LiteLLM proxy;
@@ -95,8 +95,55 @@ A human is not in the loop for each job. An LLM never certifies results.
     - `llm_usd` is allowed only with `billing = "api"` and an adapter that reports cost (not ChemGraph today);
     - `max_usd_per_wake` is required whenever `llm_usd` is set;
     - `env_passthrough` may not name any `ALCF_*`, `GLOBUS_*` or IRI token variable, nor an LLM credential reserved for the other billing mode.
-- `[backend]`: optional `iri_base_url`, default `https://api.alcf.anl.gov/api/v2` (the same default as `iri_submit.py` `BASE_URL` and `iri.sh` `BASE`). It is resolved by one function, `backends/iri.py: resolve_base_url(spec)`, which the backend and `guard` share.
+- `[backend]`: required `kind = "simulated" | "iri"`; IRI alone accepts optional `iri_base_url`, default `https://api.alcf.anl.gov/api/v2` (the same default as `iri_submit.py` `BASE_URL` and `iri.sh` `BASE`). The future backend and `guard` will share one resolver, `backends/iri.py: resolve_base_url(spec)`, using this configuration value.
 - `[wake]`: triggers.
+
+### Implemented campaign configuration (roadmap 2a)
+
+`load_campaign(path: Path) -> CampaignSpec` loads a single TOML file.
+`watchkeeper validate --campaign DIR` reads `DIR/campaign.toml` (default directory:
+the current working directory). It checks configuration only, without reading
+target/templates, checking installed CLIs or credentials, approving work, or
+creating a database. CLI errors omit input values and tracebacks. The API raises
+`CampaignConfigError` with the same diagnostics for read, parse, or schema errors.
+
+The following is the complete currently accepted schema. All models reject
+unknown fields and implicit string/boolean-to-number conversions. Strings marked
+nonblank retain their original contents. Numeric amounts are finite decimals;
+TOML fractional amounts retain their precision. Ledger conversion is deferred.
+
+| Section | Fields and constraints |
+| --- | --- |
+| Root | Required nonblank `goal`; required `budget`, `envelope`, `backend`; optional `agent`. |
+| `budget` | Required nonnegative `node_hours`; optional nonnegative `llm_usd`; optional `deadline` as a native TOML offset datetime, e.g. `2030-01-01T00:00:00Z` without quotes. Deadlines are not compared with the clock. `soft` defaults to `[0.5, 0.8]`: increasing, unique fractions strictly between 0 and 1; `[]` disables these notifications. |
+| `envelope` | Required nonempty lists of nonblank `templates` and `queues`; required positive integers `max_nodes`, `max_walltime_s`, `max_concurrent_jobs`, `max_actions_per_wake`. Template paths/content and actual queue availability are not checked yet. |
+| `backend` | Required `kind` (`simulated` or `iri`). Only IRI accepts `iri_base_url`; omitted IRI URLs use the default above. URLs must be absolute HTTPS URLs without credentials, query, fragment, whitespace, control characters, or backslashes; explicit URLs are preserved. |
+| `agent` | `interactive` defaults to `true`. Optional `adapter` is `claude_code` or `chemgraph`. With an adapter, require `billing`, positive integer `max_wakes`, `max_turns`, and `timeout_s`; optional nonblank `model`, positive integer `max_wakes_per_day`, positive decimal `max_usd_per_wake`, and `env_passthrough` (default `[]`). With no adapter, only `interactive` may be supplied. |
+
+Adapter capabilities are a fixed, immutable configuration table, not runtime
+capability detection: Claude Code supports `api`/`subscription` and reports cost;
+ChemGraph supports `api`/`free` and does not report cost. `llm_usd` requires an
+API-billed, cost-reporting adapter and `max_usd_per_wake`. Dollar settings only
+gate future wakes when `llm_usd` is set; subscription figures never gate work.
+Actual environment construction, cost reporting, and wake enforcement land with
+their respective runtime increments.
+
+`env_passthrough` contains names, never values, matching
+`[A-Za-z_][A-Za-z0-9_]*`. Case-insensitive static exclusions reject `ALCF_*`,
+`GLOBUS_*`, and `IRI_*` in every mode. Names ending in `_API_KEY`/`_AUTH_TOKEN`,
+the names `API_KEY`/`AUTH_TOKEN`, and `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`,
+`AWS_SESSION_TOKEN` require API billing. `CLAUDE_CODE_OAUTH_TOKEN` requires Claude
+subscription billing. Proxy settings `ANTHROPIC_BASE_URL` and
+`ANTHROPIC_CUSTOM_HEADERS` remain allowed, as described in the adapter design.
+These checks do not inspect environment values or establish runtime isolation.
+
+`[stop]` and `[wake]` are currently rejected, including empty sections. Stop-rule
+configuration belongs to lifecycle increment 11; wake-trigger configuration
+belongs to decision-event/headless increments 12/16. Target/template/action
+contracts and `init` belong to increment 2b. The remaining design below describes
+future behavior, not guarantees provided by configuration validation.
+
+### Approval and execution contracts (future)
 
 `watchkeeper approve-plan` records the digest of an **execution manifest**: `campaign.toml`, `target.toml`, and every file under each allowed `templates/<name>/` (including `template.toml`). `target.toml` holds executable settings (`environment_setup`, `python`, `account`), so it is part of what is approved.
 - Every check below re-hashes the manifest. If it no longer matches, the campaign pauses until it is approved again:
@@ -415,7 +462,7 @@ watchkeeper/
 
 ## Implementation sequence
 
-The authoritative [26-PR roadmap](implementation-plan.md) replaces the original
+The authoritative [implementation roadmap](implementation-plan.md) replaces the original
 ChemGraph monorepo sequence. Each increment lands independently in this repo;
 there is no requirement to change or test ChemGraph itself.
 

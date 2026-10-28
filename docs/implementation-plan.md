@@ -1,6 +1,7 @@
 # Watchkeeper implementation roadmap
 
-Status: approved direction; implementation begins with PR1. This roadmap was
+Status: approved direction; PR1 is merged and configuration is split into 2a/2b.
+These are roadmap identifiers, not guaranteed GitHub PR numbers. This roadmap was
 adapted for the standalone `tdpham2/watchkeeper` repository on 2026-10-28.
 See [progress](progress.md) for the current handoff and [design](design.md) for
 the behavior contracts.
@@ -54,7 +55,8 @@ row further by behavior rather than omitting verification.
 | PR | Focus | Acceptance |
 | --- | --- | --- |
 | 1 | Package and CI: setuptools, console entry point, README, local tests/lint. | Install without ChemGraph; wheel/import/CLI smoke checks; compatible dependency ranges; Linux/macOS Python 3.11/3.13 CI. |
-| 2 | Configuration: campaign, target, template, action and adapter capability models; `init`/`validate`. | Strict parameters/resources; billing constraints; required wake limits; forbidden credential passthrough; documented backend and wake/stop settings. |
+| 2a | Campaign configuration and static adapter capabilities; read-only `validate`. | Strict settings/resources; explicit backend kind; billing constraints; required wake limits; forbidden credential names; reject deferred wake/stop sections; no state or external calls. |
+| 2b | Target, template and action contracts; `init` and expanded `validate`. | Compatible IRI target format; strict parameter/resource contracts; scaffolded configuration validates; no approval, rendering or execution. Complete before PR3. |
 | 3 | Transactional store and ledger: schema version, WAL, revisions, campaign revision, reserve/settle. | Concurrent approval cannot overspend; settlement is idempotent; unknown usage retains its charge; integer node-seconds internally. |
 | 4 | Manifests and rendering: `approve-plan`, execution identity, immutable snapshots, JSON data mapping. | Target/template changes invalidate approval; validator-only edits preserve computation identity; traversal/symlinks/tampering/injection tested. |
 | 5 | Operation journal and operator evidence: transitions, `approve`, `reject`, `confirm-nonexecution`, `abandon`. | Interrupted submission becomes uncertain; confirmation requires evidence and renewed review; abandonment retains charges and blocks replacement work. |
@@ -63,12 +65,12 @@ row further by behavior rather than omitting verification.
 | 8 | Simulated execution: backend protocol, durable fake jobs, clock, supervisor lease, minimal `tick`/`run`. | Intent commits before submit; restart against the same remote simulator never duplicates a job; polling/staging resume. |
 | 9 | Collection and built-in validation: status file, required outputs, exit codes, result persistence and usage. | Partial collection retries; missing/malformed output has explicit outcomes; scheduler failure never implies zero usage. |
 | 10 | Custom validators: approved snapshot, isolated process, timeout/backoff, `revalidate`. | Execution failure stays collected; scientific rejection is invalid; revalidation changes provenance without a new job. |
-| 11 | Campaign lifecycle: separate gates, pause/resume/stop, deadline, draining and completion. | Funded work survives wake/budget exhaustion; drain releases only provably unused reservations; unresolved work prevents completion. |
-| 12 | Decision events: notebook, questions/answers, durable triggers, log/command notifications. | An answer creates one consumable trigger; batch/threshold events survive restart; notifier failure cannot roll back progress. |
+| 11 | Campaign lifecycle and stop-rule configuration: separate gates, pause/resume/stop, deadline, draining and completion. | Funded work survives wake/budget exhaustion; drain releases only provably unused reservations; unresolved work prevents completion. |
+| 12 | Decision events and wake-trigger configuration: notebook, questions/answers, durable triggers, log/command notifications. | An answer creates one consumable trigger; batch/threshold events survive restart; notifier failure cannot roll back progress. |
 | 13 | Report/sign-off: consistent snapshot, revision/digest checks, reviewer record. | Completion required; changed data/report rejects sign-off; historical approval becomes stale. |
 | 14 | Read-only MCP/briefs: status, brief, results, notebook, bounded responses and printed MCP config. | Real stdio client reads work; stdout is protocol-only; reads do not create a wake. |
 | 15 | Interactive proposals: session admission, synchronous dispatch, read-only fallback, fencing, EOF recovery, `end-session`, detached tick. | Calls across ticks retain session; one decision-maker; stop completes with connection open; request replay stays idempotent. |
-| 16 | Headless scheduling: wake journal, counts, trigger consumption, billing and backoff. | Crashes/rate limits consume allowance; daily limits defer; terminal wake limits do not stop funded jobs. |
+| 16 | Headless scheduling and remaining wake-trigger settings: wake journal, counts, trigger consumption, billing and backoff. | Crashes/rate limits consume allowance; daily limits defer; terminal wake limits do not stop funded jobs. |
 | 17 | POSIX process recovery: bootstrap acknowledgement, identity/group checks, timeout, `confirm-wake-ended`. | No adapter before ack; reused PIDs never signalled; ambiguous groups become unverified; late writers fenced; Windows refuses headless launch. |
 | 18 | Scripted autonomous campaign and integrated fault injection. | About 20 jobs over three simulated days finish quickly; hard kills preserve reservations, proposals, wake limits and unique submission. |
 | 19 | Claude Code adapter: restricted launch, billing-specific environment, transcript/usage and rate-limit parsing. | Fake CLI checks argv/env; subscription strips API credentials; unknown cost is conservative; missing capabilities fail closed. |
