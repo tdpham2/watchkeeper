@@ -1,0 +1,13 @@
+Watchkeeper
+
+The initial design and roadmap were adapted from the Watchkeeper planning
+document developed in the ChemGraph project:
+https://github.com/argonne-lcf/ChemGraph
+
+ChemGraph is distributed under the Apache License, Version 2.0. Its project
+metadata identifies Thang Pham and Murat Keçeli as maintainers, and Thang Pham,
+Murat Keçeli, and Aditya Tanikanti as authors.
+
+The Watchkeeper design was revised for this standalone repository on
+2026-10-28. The package scaffold does not copy ChemGraph implementation code.
+Future ports must retain applicable source notices and identify their origin.
