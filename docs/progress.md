@@ -10,7 +10,8 @@ Last updated: 2026-10-28.
   `74b9bab` on `main`.
 - [PR #1: package scaffold and CI](https://github.com/tdpham2/watchkeeper/pull/1)
   merged on 2026-10-28; all four Linux/macOS Python 3.11/3.13 CI jobs passed.
-- Roadmap increment 2a is implemented and locally verified, ready for review:
+- [PR #2: campaign configuration](https://github.com/tdpham2/watchkeeper/pull/2)
+  implements roadmap increment 2a and is open for review, not merged:
   strict campaign configuration and read-only `watchkeeper validate`.
 - The [design](design.md) documents the supported schema; the
   [roadmap](implementation-plan.md) splits configuration into 2a/2b.
@@ -38,6 +39,9 @@ credentials, installed adapters, approval, or execution readiness. Wake/stop
 sections are rejected until their lifecycle/event/scheduling increments.
 Credential checks cover documented variable names; environment construction and
 runtime enforcement remain future work. No live LLM/HPC services were used.
+
+Consult the [PR2 checks](https://github.com/tdpham2/watchkeeper/pull/2/checks) for
+current remote Linux/macOS Python 3.11/3.13 results; the evidence above is local.
 
 ## PR1 verification
 
