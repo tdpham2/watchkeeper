@@ -22,7 +22,8 @@ Last updated: 2026-10-29.
 - [PR #4: shared proposal contracts](https://github.com/tdpham2/watchkeeper/pull/4)
   implements 2b1 and merged on 2026-10-29: shared proposal models and all four
   action kinds exercised through the diagnostic probe.
-- Current change implements **2b2** for review: target/template contracts,
+- [PR #5: target/template contracts and scaffolding](https://github.com/tdpham2/watchkeeper/pull/5)
+  implements **2b2** and is open for review: target/template contracts,
   simulated campaign scaffolding, and expanded directory validation. The next
   increment is the transactional store and ledger (3), after 2b2 merges.
 - No campaign execution behavior is implemented. Available commands are
@@ -62,7 +63,8 @@ Local macOS verification completed successfully:
   live provider/HPC calls or installed ChemGraph probe was run for this increment.
 
 CI now also exercises installed-wheel `init` and `validate` on its existing
-Linux/macOS Python 3.11/3.13 matrix. The results above are local evidence.
+Linux/macOS Python 3.11/3.13 matrix. The results above are local evidence; see
+the [PR5 checks](https://github.com/tdpham2/watchkeeper/pull/5/checks) for remote CI.
 
 Limitations: templates accept scalar parameters only; target IDs, remote paths,
 credentials, and execution readiness are not checked against services. Directory
