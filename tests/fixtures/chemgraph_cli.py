@@ -8,6 +8,7 @@ from pathlib import Path
 import shlex
 import sys
 import tomllib
+import traceback
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
@@ -54,6 +55,7 @@ async def run():
     try:
         tools = await mcp_call()
     except Exception:
+        traceback.print_exc()
         return 1
     schemas = [{"type": "function", "function": {"name": t.name,
                 "description": t.description, "parameters": t.inputSchema}} for t in tools]

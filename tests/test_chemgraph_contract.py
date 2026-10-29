@@ -43,7 +43,7 @@ def test_fake_cli_full_contract(harness, executable, tmp_path, monkeypatch):
         monkeypatch.setenv(key, "must-not-reach-child")
     report = harness.probe(executable(), tmp_path / "evidence")
     assert report["evidence"] == "harness-only"
-    assert report["blockers"] == []
+    assert report["blockers"] == [], json.dumps(report, indent=2)
     assert len(report["cases"]) == 7
     success = report["cases"][0]
     assert success["request_count"] == 3
