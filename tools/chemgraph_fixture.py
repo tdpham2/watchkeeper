@@ -2,6 +2,7 @@
 
 import argparse
 import asyncio
+import faulthandler
 import json
 import os
 from pathlib import Path
@@ -86,5 +87,6 @@ if __name__ == "__main__":
     # The SDK's blocking stdin reader can resist asyncio cancellation. Bound
     # this process even in a separate MCP process group with stdin still open.
     signal.signal(signal.SIGALRM, signal.SIG_DFL)
+    faulthandler.register(signal.SIGALRM, chain=True)
     signal.setitimer(signal.ITIMER_REAL, max(0.001, args.deadline - time.monotonic()))
     asyncio.run(serve(args.observations, args.probe_id, args.fail_startup))
