@@ -15,7 +15,8 @@ Last updated: 2026-10-28.
   strict campaign configuration and read-only `watchkeeper validate`.
 - The [design](design.md) documents the supported schema; the
   [roadmap](implementation-plan.md) splits configuration into 2a/2b.
-- CG1 is implemented for review: a developer-only CLI/MCP contract probe, with
+- [PR #3: ChemGraph contract probe](https://github.com/tdpham2/watchkeeper/pull/3)
+  implements CG1 and is open for review: a developer-only CLI/MCP probe, with
   hermetic fake-CLI tests and a separate opt-in installed-CLI run. See
   [probe usage](design.md#running-the-cg1-probe). No production adapter is enabled.
 - No campaign execution behavior is implemented. Available commands are
@@ -42,7 +43,8 @@ Local verification on macOS:
   diagnostic MCP process whose stdin remains open. The latter requires a POSIX
   timer: asyncio cancellation alone does not interrupt the SDK's stdin reader.
 
-These are local results; the PR checks provide Linux/macOS CI evidence.
+These are local results; the [PR3 checks](https://github.com/tdpham2/watchkeeper/pull/3/checks)
+provide Linux/macOS CI evidence.
 
 Separate installed-CLI/fake-model evidence on macOS:
 
