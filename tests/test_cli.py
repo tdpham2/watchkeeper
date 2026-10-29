@@ -14,7 +14,7 @@ import pytest
     ("arguments", "exit_code", "message"),
     [
         ([], 0, "Campaign execution is not implemented."),
-        (["--help"], 0, "validate campaign configuration only"),
+        (["--help"], 0, "validate campaign, target, and template configuration"),
         (["--version"], 0, f"watchkeeper {version('watchkeeper')}"),
         (["tick"], 2, "invalid choice: 'tick'"),
     ],
@@ -41,8 +41,10 @@ def test_cli(entrypoint, arguments, exit_code, message, tmp_path):
 
 
 @pytest.mark.parametrize("explicit_directory", [False, True])
-def test_validate_cli(campaign_file, explicit_directory):
+def test_validate_cli(campaign_directory, explicit_directory):
+    campaign_file = campaign_directory / "campaign.toml"
     original = campaign_file.read_bytes()
+    before = sorted(campaign_directory.rglob("*"))
     result = subprocess.run(
         [
             sys.executable,
@@ -60,7 +62,7 @@ def test_validate_cli(campaign_file, explicit_directory):
     assert "Configuration validation only" in result.stdout
     assert "execution readiness are not checked" in result.stdout
     assert campaign_file.read_bytes() == original
-    assert list(campaign_file.parent.iterdir()) == [campaign_file]
+    assert sorted(campaign_directory.rglob("*")) == before
 
 
 @pytest.mark.parametrize(
@@ -85,3 +87,26 @@ def test_validate_cli_failure(tmp_path, content, expected):
     assert result.returncode == 2 and not result.stdout
     assert expected in result.stderr
     assert "PRIVATE_INPUT" not in result.stderr and "Traceback" not in result.stderr
+
+
+@pytest.mark.parametrize("entrypoint", ["console", "module"])
+@pytest.mark.parametrize("explicit_directory", [False, True])
+def test_init_then_validate(entrypoint, explicit_directory, tmp_path):
+    command = ([str(Path(sysconfig.get_path("scripts")) / "watchkeeper")]
+               if entrypoint == "console" else [sys.executable, "-m", "watchkeeper"])
+    destination = tmp_path / "new campaign" if explicit_directory else tmp_path
+    arguments = ["--campaign", str(destination)] if explicit_directory else []
+    for operation in ("init", "validate"):
+        result = subprocess.run([*command, operation, *arguments], cwd=tmp_path,
+                                capture_output=True, text=True, timeout=10)
+        assert result.returncode == 0, result.stderr
+        assert not result.stderr
+    before = {p.relative_to(destination): p.read_bytes()
+              for p in destination.rglob("*") if p.is_file()}
+    assert set(map(str, before)) == {"campaign.toml", "templates/example/template.toml"}
+    result = subprocess.run([*command, "init", *arguments], cwd=tmp_path,
+                            capture_output=True, text=True, timeout=10)
+    assert result.returncode == 2 and "destination must be empty" in result.stderr
+    assert not result.stdout and "Traceback" not in result.stderr
+    assert before == {p.relative_to(destination): p.read_bytes()
+                      for p in destination.rglob("*") if p.is_file()}

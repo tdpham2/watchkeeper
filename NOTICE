@@ -11,3 +11,9 @@ Murat Keçeli, and Aditya Tanikanti as authors.
 The Watchkeeper design was revised for this standalone repository on
 2026-10-28. The package scaffold does not copy ChemGraph implementation code.
 Future ports must retain applicable source notices and identify their origin.
+
+The IRI target configuration contract and its test fixture follow
+src/chemgraph/skills/iri-hpc/assets/target.example.toml and
+src/chemgraph/skills/iri-hpc/scripts/iri_configure.py at ChemGraph commit
+855e3756856e49aa4326937e552840acd5ebdaf9 (Apache-2.0). No ChemGraph implementation
+code is imported or executed by the configuration loaders.

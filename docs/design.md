@@ -101,11 +101,10 @@ A human is not in the loop for each job. An LLM never certifies results.
 
 ### Implemented campaign configuration (roadmap 2a)
 
-`load_campaign(path: Path) -> CampaignSpec` loads a single TOML file.
-`watchkeeper validate --campaign DIR` reads `DIR/campaign.toml` (default directory:
-the current working directory). It checks configuration only, without reading
-target/templates, checking installed CLIs or credentials, approving work, or
-creating a database. CLI errors omit input values and tracebacks. The API raises
+`watchkeeper.spec.load_campaign(path: Path) -> CampaignSpec` loads a single TOML
+file. This API remains independent of target/template files. The CLI now uses
+the [directory loader](#implemented-directory-and-template-contracts-roadmap-2b2).
+CLI errors omit input values and tracebacks. The API raises
 `CampaignConfigError` with the same diagnostics for read, parse, or schema errors.
 
 The following is the complete currently accepted schema. All models reject
@@ -117,7 +116,7 @@ TOML fractional amounts retain their precision. Ledger conversion is deferred.
 | --- | --- |
 | Root | Required nonblank `goal`; required `budget`, `envelope`, `backend`; optional `agent`. |
 | `budget` | Required nonnegative `node_hours`; optional nonnegative `llm_usd`; optional `deadline` as a native TOML offset datetime, e.g. `2030-01-01T00:00:00Z` without quotes. Deadlines are not compared with the clock. `soft` defaults to `[0.5, 0.8]`: increasing, unique fractions strictly between 0 and 1; `[]` disables these notifications. |
-| `envelope` | Required nonempty lists of nonblank `templates` and `queues`; required positive integers `max_nodes`, `max_walltime_s`, `max_concurrent_jobs`, `max_actions_per_wake`. Template paths/content and actual queue availability are not checked yet. |
+| `envelope` | Required nonempty lists of nonblank `templates` and `queues`; required positive integers `max_nodes`, `max_walltime_s`, `max_concurrent_jobs`, `max_actions_per_wake`. The directory loader also checks template names/content; actual queue availability is not checked. |
 | `backend` | Required `kind` (`simulated` or `iri`). Only IRI accepts `iri_base_url`; omitted IRI URLs use the default above. URLs must be absolute HTTPS URLs without credentials, query, fragment, whitespace, control characters, or backslashes; explicit URLs are preserved. |
 | `agent` | `interactive` defaults to `true`. Optional `adapter` is `claude_code` or `chemgraph`. With an adapter, require `billing`, positive integer `max_wakes`, `max_turns`, and `timeout_s`; optional nonblank `model`, positive integer `max_wakes_per_day`, positive decimal `max_usd_per_wake`, and `env_passthrough` (default `[]`). With no adapter, only `interactive` may be supplied. |
 
@@ -141,7 +140,8 @@ These checks do not inspect environment values or establish runtime isolation.
 `[stop]` and `[wake]` are currently rejected, including empty sections. Stop-rule
 configuration belongs to lifecycle increment 11; wake-trigger configuration
 belongs to decision-event/headless increments 12/16. Proposal shapes are
-implemented in 2b1 below; target/template contracts and `init` belong to 2b2.
+implemented in 2b1 below; directory/template contracts and `init` are implemented
+in 2b2.
 
 ### Implemented proposal contracts (roadmap 2b1)
 
@@ -165,14 +165,100 @@ nonfinite numbers and non-JSON Python values are rejected. Envelope, action and
 resource models reject unknown fields. The schema uses a `kind`-discriminated
 union, shared by the diagnostic ChemGraph MCP fixture.
 
-These checks establish shape only. Template existence/parameter contracts,
-envelope limits (including `max_actions_per_wake`), request replay, approval and
+These checks establish shape only. The separate 2b2 APIs check template existence
+and scalar parameter contracts; proposal validation does not call them.
+Envelope limits (including `max_actions_per_wake`), request replay, approval and
 execution remain later increments. Parameters are data and cannot override the
 separate resource fields. Validation creates no state or action effects.
 
+### Implemented directory and template contracts (roadmap 2b2)
+
+`watchkeeper.campaign.load_campaign_directory(path: Path) -> CampaignDefinition`
+returns `campaign: CampaignSpec`, `target: TargetSpec | None`, and
+`templates: dict[str, TemplateSpec]`. `watchkeeper validate --campaign DIR`
+uses this loader; both CLI commands default to the current working directory.
+It reads the campaign, the target if present (required for `backend.kind = "iri"`),
+and `template.toml` under every allowed `templates/<name>/`. Duplicate template
+names are rejected. Names must be single directory components.
+
+The supplied campaign root is resolved once. Below it, configuration files and
+allowed template trees must contain only regular files/directories, with no
+symlinks (including dangling links). A declared validator must exist as a regular
+file beside `template.toml`. Output paths describe future collected files; they
+need not exist now. Relative paths reject empty/dot/parent components, backslashes,
+colons and control characters. These are offline checks, not an immutable
+snapshot or a defense against concurrent filesystem replacement; approved-byte
+and snapshot checks belong to increment 4.
+
+`watchkeeper.campaign.load_target(path) -> TargetSpec` reads one target file.
+The model uses the flat keys of the pinned IRI
+[example](https://github.com/argonne-lcf/ChemGraph/blob/855e3756856e49aa4326937e552840acd5ebdaf9/src/chemgraph/skills/iri-hpc/assets/target.example.toml)
+and [configuration writer](https://github.com/argonne-lcf/ChemGraph/blob/855e3756856e49aa4326937e552840acd5ebdaf9/src/chemgraph/skills/iri-hpc/scripts/iri_configure.py),
+without calling or importing either. Required nonblank strings are
+`compute_resource_id`, `storage_resource_id`, `account`, `username`, `queue`,
+`filesystems`, `remote_root`, `local_collection_id`, `local_globus_root`,
+`remote_collection_id`, `remote_globus_root`, `environment_setup`, and `python`.
+`node_count` and `duration` are required positive integers. Unknown fields and
+coercions are rejected; string contents are preserved, including `/~/` Globus
+paths. IDs, remote paths, environments and credentials are not verified remotely.
+Target resource defaults are retained for format compatibility; they do not
+override proposal resources or establish envelope authorization.
+
+`watchkeeper.templates.load_template(path) -> TemplateSpec` reads metadata only.
+It requires `params` (a table, possibly empty), `outputs` (a list of unique
+relative paths, possibly empty), and `exit_codes` (a nonempty table of canonical
+decimal strings from `"0"` to `"255"` mapped to nonblank outcome labels).
+Optional `validate = "validate.py"` names a single local file, exposed as
+`TemplateSpec.validator`. Runtime interpretation of outputs and exit labels
+belongs to increment 9; validator execution belongs to 10.
+
+Each `[params.NAME]` declaration accepts:
+
+| Field | Contract |
+| --- | --- |
+| `type` | Required `string`, `integer`, `number`, or `boolean`. Objects, arrays, and null are deferred for template parameters; proposal transport still supports nested JSON. |
+| `required` | Boolean, default `true`. Missing optional values stay absent; no defaults are inserted. |
+| `enum` | Optional nonempty list of unique values of the declared type, satisfying all other constraints. Numeric equality defines uniqueness for numbers. |
+| `min`, `max` | Inclusive finite numeric bounds, with `min <= max` when both are present. Integer parameters require integer bounds. Numeric declarations need an enum or both bounds. |
+| `max_length` | Required positive integer for strings; maximum Unicode character count. |
+| `pattern` | Optional Python regular expression for strings, compiled at configuration validation and matched against the entire value. |
+
+Unknown fields and constraints for the wrong type are rejected. Booleans are
+never numbers; integers reject floats; numbers accept finite Python integers or
+floats without changing them. Template TOML numeric constraints use finite
+integers/floats; campaign monetary/node-hour amounts retain decimal precision.
+`TemplateSpec.validate_params(params)` returns a new dict with the accepted
+scalar values unchanged. It rejects unknown/missing parameters, wrong types and
+constraint violations with `CampaignConfigError`, without echoing input values.
+This can check `RunAction.params` for the future dispatcher; it neither changes
+proposal schemas nor authorizes or executes any action.
+
+For example, a complete `templates/example/template.toml`:
+
+```toml
+outputs = ["result.json"]
+
+[exit_codes]
+"0" = "ok"
+"1" = "failed"
+
+[params.label]
+type = "string"
+max_length = 80
+```
+
+`watchkeeper init --campaign DIR` (Python: `watchkeeper.campaign.init_campaign`)
+creates a simulated campaign and this example metadata in an absent or empty
+directory. It sets no headless adapter, creates no target/database/run directory,
+and performs no rendering or execution. Nonempty destinations and symlink
+destinations are refused. Files are created exclusively; an I/O failure may leave
+an incomplete scaffold, which must be inspected/removed by the operator before
+retrying. Initialization is not a multi-file transaction. Both commands exit 0
+on success or 2 on configuration/I/O errors, without tracebacks or input values.
+
 ### Approval and execution contracts (future)
 
-`watchkeeper approve-plan` records the digest of an **execution manifest**: `campaign.toml`, `target.toml`, and every file under each allowed `templates/<name>/` (including `template.toml`). `target.toml` holds executable settings (`environment_setup`, `python`, `account`), so it is part of what is approved.
+`watchkeeper approve-plan` records the digest of an **execution manifest**: `campaign.toml`, `target.toml` when present, and every file under each allowed `templates/<name>/` (including `template.toml`). The presence/absence of the optional simulated target is itself part of the manifest. `target.toml` holds executable settings (`environment_setup`, `python`, `account`), so it is part of what is approved.
 - Every check below re-hashes the manifest. If it no longer matches, the campaign pauses until it is approved again:
   - before an approval,
   - before staging,

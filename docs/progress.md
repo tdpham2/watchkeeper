@@ -1,13 +1,13 @@
 # Implementation progress
 
-Last updated: 2026-10-28.
+Last updated: 2026-10-29.
 
 ## Current handoff
 
 - Repository: https://github.com/tdpham2/watchkeeper
-- Implementation checkout: `/Users/tpham2/work/projects/watchkeeper`.
-- Implementation branch: `feature/proposal-contracts`, based on merged CG1 at
-  `7e87405` on `main`.
+- Implementation checkout: `/Users/tpham2/.codex/worktrees/e0f5/watchkeeper`.
+- Implementation branch: `feature/template-config`, based on merged 2b1 at
+  `b387910` on `main`.
 - [PR #1: package scaffold and CI](https://github.com/tdpham2/watchkeeper/pull/1)
   merged on 2026-10-28; all four Linux/macOS Python 3.11/3.13 CI jobs passed.
 - [PR #2: campaign configuration](https://github.com/tdpham2/watchkeeper/pull/2)
@@ -20,11 +20,58 @@ Last updated: 2026-10-28.
   hermetic fake-CLI tests and a separate opt-in installed-CLI run. See
   [probe usage](design.md#running-the-cg1-probe). No production adapter is enabled.
 - [PR #4: shared proposal contracts](https://github.com/tdpham2/watchkeeper/pull/4)
-  implements 2b1 and is open for review: shared proposal models and all four
-  action kinds exercised through the diagnostic probe. Target/template contracts
-  and scaffolding are the next focused increment, 2b2.
+  implements 2b1 and merged on 2026-10-29: shared proposal models and all four
+  action kinds exercised through the diagnostic probe.
+- Current change implements **2b2** for review: target/template contracts,
+  simulated campaign scaffolding, and expanded directory validation. The next
+  increment is the transactional store and ledger (3), after 2b2 merges.
 - No campaign execution behavior is implemented. Available commands are
-  help/version and campaign configuration validation only.
+  help/version, `init`, and configuration-only `validate`.
+
+## Directory and template verification (2b2)
+
+`watchkeeper.campaign.load_campaign_directory` checks the campaign, optional IRI
+target (required for IRI), and every allowed template. The original single-file
+`load_campaign` API remains available. Target fields match the pinned IRI
+example/configuration writer, without discovery or a ChemGraph dependency.
+`TemplateSpec.validate_params` checks bounded scalar declarations and values;
+proposal transport retains nested JSON support and performs no template dispatch.
+
+`watchkeeper init` creates simulated configuration in an absent or empty
+directory, without overwriting files. `validate` now requires declared templates
+and checks file references, traversal, symlinks, and special files. The README
+describes the CLI behavior change and the design documents the exact contracts.
+
+Local macOS verification completed successfully:
+
+- Ruff passed; Python 3.11.13 and 3.13.2 each passed all **292 tests**.
+- Source and wheel distributions built successfully. The wheel's Python files
+  were verified byte-for-byte against this checkout; tools/tests are excluded.
+- A clean `.venv-wheel-templates` installed the wheel/test extras without
+  ChemGraph. All 292 extracted-source tests passed outside the checkout against
+  the installed wheel; import location, CLI version, `init`, and module-entry
+  `validate` smoke checks passed there.
+- Dependency checks passed for both editable environments and the wheel
+  environment. Installed versions included Pydantic 2.14.1 and MCP 1.30.0.
+- Local documentation links, anchors, code fences, and `git diff --check` passed.
+- New cases cover scalar type/constraint failures, nonfinite values, invalid and
+  excessively nested/large regexes, IRI compatibility, unsafe files/paths,
+  missing validators, optional targets, and concurrent-file preservation.
+  Validation tests forbid network/subprocess calls and verify no state creation.
+  Existing probe tests required local loopback sockets outside the sandbox; no
+  live provider/HPC calls or installed ChemGraph probe was run for this increment.
+
+CI now also exercises installed-wheel `init` and `validate` on its existing
+Linux/macOS Python 3.11/3.13 matrix. The results above are local evidence.
+
+Limitations: templates accept scalar parameters only; target IDs, remote paths,
+credentials, and execution readiness are not checked against services. Directory
+validation does not provide immutable snapshots or protect against concurrent
+file replacement. Initialization uses exclusive file creation, not a multi-file
+transaction; I/O failure can leave an incomplete scaffold for operator cleanup.
+Rendering/JSON mappings and approvals remain increment 4; no runtime effects,
+database, or production adapter are enabled here. The ChemGraph production
+compatibility blockers below remain unchanged.
 
 ## Proposal contract verification (2b1)
 
@@ -74,9 +121,9 @@ Separate installed-CLI/fake-model evidence on macOS:
   and loop/provider failures exit 0. The harness still exits 1 with these five
   per-case blockers. Passing proposal transport is not full CLI compatibility.
 
-Template-specific validation, envelope limits, replay, approval and all action
-effects remain future work. The production adapter stays gated on increments
-3–18 and the two compatibility issues above.
+At 2b1, template-specific validation was deferred to 2b2. Envelope limits,
+replay, approval and all action effects remain future work. The production
+adapter stays gated on increments 3–18 and the two compatibility issues above.
 
 ## Original CG1 verification and compatibility findings
 
@@ -151,7 +198,8 @@ Local verification on macOS completed successfully:
   environment. Local documentation links/code fences and `git diff --check`
   passed.
 
-Validation reads only `campaign.toml`. It checks no target/template files,
+The original 2a validation read only `campaign.toml`, as the single-file API
+still does. That increment checked no target/template files,
 credentials, installed adapters, approval, or execution readiness. Wake/stop
 sections are rejected until their lifecycle/event/scheduling increments.
 Credential checks cover documented variable names; environment construction and
@@ -185,12 +233,13 @@ macOS results; they do not claim Linux execution of increment 2a.
 ## Continue here next time
 
 Open this repository directly and read `AGENTS.md`. The editable development
-environment is `.venv`; `.venv-313` and `.venv-wheel-proposals` are local verification
+environment is `.venv`; `.venv-313` and `.venv-wheel-templates` are local verification
 environments, all ignored by Git.
 
-Review and merge 2b1, then branch from current `main` for **2b2**:
-target/template contracts, `init`, and expanded `validate`, reusing the shared
-proposal models. Complete 2b2 before ledger increment 3. Keep core increments
+Review and merge 2b2, then branch from current `main` for **increment 3**:
+transactional SQLite store and conservative ledger, schema version/WAL,
+revision checks, atomic reservation/settlement, and integer node-seconds.
+Keep core increments
 3–18 intact; implement production ChemGraph adapter 20 after 18 and before
 Claude adapter 19. Stop-rule fields
 belong to 11; wake-trigger fields belong to 12/16. The first live HPC pilot stays
