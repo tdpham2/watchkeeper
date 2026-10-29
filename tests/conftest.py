@@ -23,3 +23,11 @@ kind = "simulated"
         encoding="utf-8",
     )
     return path
+
+
+@pytest.fixture
+def campaign_directory(tmp_path):
+    from watchkeeper.campaign import init_campaign
+
+    init_campaign(tmp_path)
+    return tmp_path

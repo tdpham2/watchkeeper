@@ -45,3 +45,5 @@ jobs:
             "import importlib.util, watchkeeper; assert importlib.util.find_spec('chemgraph') is None; print(watchkeeper.__version__)"
           "$RUNNER_TEMP/watchkeeper-wheel/bin/python" -I -m watchkeeper --help
           "$RUNNER_TEMP/watchkeeper-wheel/bin/watchkeeper" --version
+          "$RUNNER_TEMP/watchkeeper-wheel/bin/watchkeeper" init --campaign "$RUNNER_TEMP/campaign"
+          "$RUNNER_TEMP/watchkeeper-wheel/bin/python" -I -m watchkeeper validate --campaign "$RUNNER_TEMP/campaign"

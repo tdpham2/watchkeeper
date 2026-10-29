@@ -10,7 +10,8 @@ ChemGraph or depend on a particular agent or scientific domain.
 
 ## Development status
 
-The package provides help/version, read-only campaign configuration validation,
+The package provides help/version, campaign scaffolding, read-only campaign,
+target and template configuration validation,
 and [proposal data models](docs/design.md#implemented-proposal-contracts-roadmap-2b1).
 Campaign execution is not implemented. There is no supported PyPI release.
 Linux and macOS are the initial execution targets; Windows headless process
@@ -32,39 +33,38 @@ scrubbed environment. This is an application boundary, not an OS sandbox.
 Interactive sessions retain their host tools and credentials: guarantees cover
 only work routed through Watchkeeper. The planned hook guard is a tripwire.
 
-## Validate campaign configuration
+## Create and validate campaign configuration
 
-Create a directory with this minimal `campaign.toml`:
+Create a simulated campaign in an absent or empty directory:
 
-```toml
-goal = "Explore a small campaign"
-
-[budget]
-node_hours = 1.25
-
-[envelope]
-templates = ["example"]
-queues = ["debug"]
-max_nodes = 1
-max_walltime_s = 600
-max_concurrent_jobs = 1
-max_actions_per_wake = 4
-
-[backend]
-kind = "simulated"
+```bash
+watchkeeper init --campaign my-campaign
+watchkeeper validate --campaign my-campaign
 ```
 
-Run `watchkeeper validate --campaign DIR`, or `watchkeeper validate` from that
-directory. Success exits 0; configuration/read errors exit 2 with diagnostics
-on stderr. The command reads only `campaign.toml` and creates no state. It does
-not check templates, approval, credentials, installed adapters, or execution
-readiness. No target or template files are needed for this validation step.
+Both commands default to the current directory. `init` writes `campaign.toml`
+and `templates/example/template.toml`, with a 1.25 node-hour budget, a single-node
+debug envelope, and no headless adapter. It refuses nonempty destinations and
+never overwrites files. The example declares a string parameter `label` and a
+future `result.json` output; it does not yet include a runnable calculation.
+
+`validate` reads the campaign, every allowed template, and `target.toml` when
+present (required for IRI). It checks scalar parameter declarations, file
+references, and safe paths without executing scripts or creating state.
+Success exits 0; configuration/read errors exit 2 with diagnostics on stderr.
+Validation does not check approval, credentials, installed adapters, remote
+resources, or execution readiness.
+
+Existing campaign-only directories now need their declared templates before
+the CLI will validate them. The Python `load_campaign(path)` API still reads
+only one campaign file. See the [directory and template contracts](docs/design.md#implemented-directory-and-template-contracts-roadmap-2b2)
+for the full schema and the separate parameter-validation API.
 
 The [configuration contract](docs/design.md#implemented-campaign-configuration-roadmap-2a)
 lists all supported fields, defaults, and billing restrictions. Unknown fields,
 including `[wake]` and `[stop]`, are rejected. Proposal shapes can be validated
-through the Python API and the developer ChemGraph probe. `init`, target/template
-validation, and campaign execution remain future increments.
+through the Python API and the developer ChemGraph probe. Campaign execution
+remains a future increment.
 
 ## Development
 

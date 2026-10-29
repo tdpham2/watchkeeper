@@ -5,7 +5,7 @@ from pathlib import Path
 import re
 import tomllib
 from types import MappingProxyType
-from typing import Annotated, Literal, Self
+from typing import Annotated, Literal, Self, TypeVar
 from urllib.parse import urlsplit
 
 from pydantic import (
@@ -226,24 +226,31 @@ class CampaignConfigError(ValueError):
     """Configuration diagnostics safe to display without input values."""
 
 
+_Spec = TypeVar("_Spec", bound=SpecModel)
+
+
 def load_campaign(path: Path) -> CampaignSpec:
     """Read only this TOML file, preserving decimal amounts and hiding input values."""
+    return _load_spec(path, CampaignSpec, "campaign.toml")
+
+
+def _load_spec(path: Path, model: type[_Spec], label: str, *, parse_float=Decimal) -> _Spec:
     try:
         with path.open("rb") as stream:
-            data = tomllib.load(stream, parse_float=Decimal)
+            data = tomllib.load(stream, parse_float=parse_float)
     except (OSError, UnicodeError):
-        raise CampaignConfigError("campaign.toml: cannot read a UTF-8 file") from None
+        raise CampaignConfigError(f"{label}: cannot read a UTF-8 file") from None
     except (ValueError, DecimalException):
-        raise CampaignConfigError("campaign.toml: invalid TOML") from None
+        raise CampaignConfigError(f"{label}: invalid TOML") from None
     try:
-        return CampaignSpec.model_validate(data)
+        return model.model_validate(data)
     except ValidationError as exc:
         errors = exc.errors(
             include_input=False, include_context=False, include_url=False
         )
         raise CampaignConfigError(
             "\n".join(
-                f"{'.'.join(map(str, error['loc'])) or 'campaign'}: {error['msg']}"
+                f"{'.'.join(map(str, error['loc'])) or label}: {error['msg']}"
                 for error in errors
             )
         ) from None

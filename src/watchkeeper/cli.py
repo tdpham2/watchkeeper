@@ -6,7 +6,8 @@ from pathlib import Path
 import sys
 
 from watchkeeper import __version__
-from watchkeeper.spec import CampaignConfigError, load_campaign
+from watchkeeper.campaign import init_campaign, load_campaign_directory
+from watchkeeper.spec import CampaignConfigError
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -19,21 +20,30 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--version", action="version", version=f"%(prog)s {__version__}"
     )
     commands = parser.add_subparsers(dest="command")
-    validate = commands.add_parser(
-        "validate", help="validate campaign configuration only"
-    )
-    validate.add_argument("--campaign", type=Path, default=Path("."), metavar="DIR")
+    for name, help_text in (
+        ("init", "create a simulated campaign configuration"),
+        ("validate", "validate campaign, target, and template configuration"),
+    ):
+        command = commands.add_parser(name, help=help_text)
+        command.add_argument("--campaign", type=Path, default=Path("."), metavar="DIR")
     args = parser.parse_args(argv)
-    if args.command == "validate":
+    if args.command in ("init", "validate"):
         try:
-            load_campaign(args.campaign / "campaign.toml")
+            if args.command == "init":
+                init_campaign(args.campaign)
+            else:
+                load_campaign_directory(args.campaign)
         except CampaignConfigError as exc:
             print(exc, file=sys.stderr)
             return 2
-        print(
-            "Campaign configuration valid. Configuration validation only; "
-            "templates, approval, credentials, and execution readiness are not checked."
-        )
+        if args.command == "init":
+            print("Campaign configuration created. Campaign execution is not implemented.")
+        else:
+            print(
+                "Campaign configuration valid (including target/templates). "
+                "Configuration validation only; approval, credentials, "
+                "and execution readiness are not checked."
+            )
     else:
         parser.print_help()
     return 0

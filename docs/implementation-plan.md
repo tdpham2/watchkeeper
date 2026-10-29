@@ -1,7 +1,8 @@
 # Watchkeeper implementation roadmap
 
-Status: PR1, configuration 2a and CG1 are merged. Proposal contracts 2b1 are
-implemented for review; target/template configuration 2b2 is next. See the handoff
+Status: PR1, configuration 2a, CG1 and proposal contracts 2b1 are merged.
+Target/template configuration 2b2 is implemented for review; the transactional
+store and ledger (3) follow after it merges. See the handoff
 for validation evidence and ChemGraph compatibility blockers.
 These are roadmap identifiers, not guaranteed GitHub PR numbers. This roadmap was
 adapted for the standalone `tdpham2/watchkeeper` repository on 2026-10-28.
