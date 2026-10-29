@@ -5,29 +5,85 @@ Last updated: 2026-10-28.
 ## Current handoff
 
 - Repository: https://github.com/tdpham2/watchkeeper
-- Implementation checkout: `/Users/tpham2/.codex/worktrees/71d0/watchkeeper`.
-- Implementation branch: `feature/chemgraph-contract`, based on merged PR2 at
-  `a369a97` on `main`.
+- Implementation checkout: `/Users/tpham2/work/projects/watchkeeper`.
+- Implementation branch: `feature/proposal-contracts`, based on merged CG1 at
+  `7e87405` on `main`.
 - [PR #1: package scaffold and CI](https://github.com/tdpham2/watchkeeper/pull/1)
   merged on 2026-10-28; all four Linux/macOS Python 3.11/3.13 CI jobs passed.
 - [PR #2: campaign configuration](https://github.com/tdpham2/watchkeeper/pull/2)
   implements roadmap increment 2a and merged on 2026-10-28:
   strict campaign configuration and read-only `watchkeeper validate`.
 - The [design](design.md) documents the supported schema; the
-  [roadmap](implementation-plan.md) splits configuration into 2a/2b.
+  [roadmap](implementation-plan.md) splits configuration into 2a/2b1/2b2.
 - [PR #3: ChemGraph contract probe](https://github.com/tdpham2/watchkeeper/pull/3)
-  implements CG1 and is open for review: a developer-only CLI/MCP probe, with
+  implements CG1 and merged on 2026-10-28: a developer-only CLI/MCP probe, with
   hermetic fake-CLI tests and a separate opt-in installed-CLI run. See
   [probe usage](design.md#running-the-cg1-probe). No production adapter is enabled.
+- [PR #4: shared proposal contracts](https://github.com/tdpham2/watchkeeper/pull/4)
+  implements 2b1 and is open for review: shared proposal models and all four
+  action kinds exercised through the diagnostic probe. Target/template contracts
+  and scaffolding are the next focused increment, 2b2.
 - No campaign execution behavior is implemented. Available commands are
   help/version and campaign configuration validation only.
 
-## CG1 verification and compatibility findings
+## Proposal contract verification (2b1)
 
-The probe exposes only diagnostic `get_brief` and `propose_actions` tools. It
-records a note, request ID, and identity across server processes without any
-campaign state or dispatcher. Ordinary tests use fake executables and real local
-HTTP/MCP transports; actual ChemGraph is never a test-suite dependency.
+`watchkeeper.actions.ProposalRequest` validates the documented `kind`-discriminated
+`run`, `note`, `ask_human` and `stop` payloads, with required request identity,
+ordered actions, strict resources and finite JSON parameters. The diagnostic MCP
+fixture advertises and validates this model directly. It records the mixed batch
+without executing any effects; shape validation is not authorization.
+
+The tests cover required/unknown fields, strict types, nested JSON, nonfinite
+numbers through both Python and JSON validation, schema advertisement, malformed
+calls, reconnections and literal shell-like strings. A nested finite-JSON check
+handles Pydantic's `JsonValue` JSON-input path, which otherwise accepts nonfinite
+numbers despite the model's `allow_inf_nan=False` setting.
+
+Local verification on macOS completed successfully:
+
+- Ruff passed; Python 3.11.13 and 3.13.2 each passed all 178 tests.
+- Source distribution and wheel built successfully. A clean
+  `.venv-wheel-proposals` installed the wheel/test extras without ChemGraph;
+  all 178 extracted-source tests passed outside the checkout against that wheel.
+- The installed proposal API, CLI help/version, absence of ChemGraph and wheel
+  exclusion of developer tools/tests were verified. Dependency checks passed for
+  both editable environments and the clean wheel environment.
+- Local documentation links, anchors, code fences and `git diff --check` passed.
+  These results are local; the [PR4 checks](https://github.com/tdpham2/watchkeeper/pull/4/checks)
+  provide remote CI evidence.
+
+Separate installed-CLI/fake-model evidence on macOS:
+
+- Executable `/opt/anaconda3/bin/chemgraph`, metadata version 0.7.0, editable
+  commit `0c0a76cc76700f04621914e964a882855e5862b3`; tracked files were clean.
+  No ChemGraph files changed. The unsupported `--version` response is retained.
+- Final invocation used `--recursion-limit 6 --timeout 30`, fresh HOME/config,
+  a dummy key and loopback services. Artifacts are ignored locally under
+  `.cg1-artifacts/proposals-2/`; no live provider or HPC service was used.
+- Success: 3 HTTP requests, exactly two diagnostic tools, all four action kinds
+  delivered unchanged (including nested data and shell-like text), matching
+  proposal schema, identity across three MCP processes, EOFs and CLI exit 0.
+- ChemGraph inlines schema references and omits title/description annotations.
+  The probe allows those representation changes while checking validation
+  constraints; a regression test rejects a weakened action-list constraint.
+- Malformed arguments were rejected (2 requests); failed MCP startup made no
+  model requests and exited 1. Loop cases made 1/2 requests at limits 1/6.
+  HTTP 500 cases made 3 requests at each limit, including retries.
+- The same production blockers remain: limit-1 retries exceed the request bound,
+  and loop/provider failures exit 0. The harness still exits 1 with these five
+  per-case blockers. Passing proposal transport is not full CLI compatibility.
+
+Template-specific validation, envelope limits, replay, approval and all action
+effects remain future work. The production adapter stays gated on increments
+3–18 and the two compatibility issues above.
+
+## Original CG1 verification and compatibility findings
+
+The original CG1 probe exposed only diagnostic `get_brief` and `propose_actions`
+tools. It recorded a note, request ID, and identity across server processes
+without any campaign state or dispatcher. Ordinary tests used fake executables
+and real local HTTP/MCP transports, without a ChemGraph dependency.
 
 Local verification on macOS:
 
@@ -129,13 +185,14 @@ macOS results; they do not claim Linux execution of increment 2a.
 ## Continue here next time
 
 Open this repository directly and read `AGENTS.md`. The editable development
-environment is `.venv`; `.venv-313` and `.venv-wheel-cg1` are local verification
+environment is `.venv`; `.venv-313` and `.venv-wheel-proposals` are local verification
 environments, all ignored by Git.
 
-Review and merge CG1, then branch from current `main` for **2b**:
-target/template/action contracts, `init`, and expanded `validate`. Complete 2b
-before ledger increment 3. Keep core increments 3–18 intact; implement production
-ChemGraph adapter 20 after 18 and before Claude adapter 19. Stop-rule fields
+Review and merge 2b1, then branch from current `main` for **2b2**:
+target/template contracts, `init`, and expanded `validate`, reusing the shared
+proposal models. Complete 2b2 before ledger increment 3. Keep core increments
+3–18 intact; implement production ChemGraph adapter 20 after 18 and before
+Claude adapter 19. Stop-rule fields
 belong to 11; wake-trigger fields belong to 12/16. The first live HPC pilot stays
 at 26. The early diagnostic probe grants no campaign execution or recovery
 guarantees and cannot bypass the runtime safety dependencies.

@@ -1,8 +1,8 @@
 # Watchkeeper implementation roadmap
 
-Status: PR1 and configuration 2a are merged. CG1 is implemented for review;
-configuration 2b is next after CG1 merges. See the handoff for validation evidence
-and ChemGraph compatibility blockers.
+Status: PR1, configuration 2a and CG1 are merged. Proposal contracts 2b1 are
+implemented for review; target/template configuration 2b2 is next. See the handoff
+for validation evidence and ChemGraph compatibility blockers.
 These are roadmap identifiers, not guaranteed GitHub PR numbers. This roadmap was
 adapted for the standalone `tdpham2/watchkeeper` repository on 2026-10-28.
 See [progress](progress.md) for the current handoff and [design](design.md) for
@@ -24,7 +24,7 @@ branching the next dependent PR from current `main`.
 
 ### Early ChemGraph integration
 
-Delivery order is **2a → CG1 → 2b → 3–18 → 20 → 19 → 21–26**.
+Delivery order is **2a → CG1 → 2b1 → 2b2 → 3–18 → 20 → 19 → 21–26**.
 Keep existing roadmap identifiers stable; row order indicates delivery priority.
 CG1 is a separate focused PR after 2a merges, not an addition to configuration
 implementation. The first real ChemGraph test should not wait for the runtime
@@ -44,6 +44,11 @@ and process-recovery dependencies intact. CG1 records protocol observations only
 it cannot approve, stage, submit, or establish campaign guarantees. Its findings
 inform 2b, 14–17, and 20. Record incompatibilities explicitly and resolve them
 before enabling the production adapter; core work can continue independently.
+
+Split 2b to advance the ChemGraph contract first: 2b1 supplies shared proposal
+models and tests all four action kinds through the diagnostic probe; 2b2 adds
+target/template contracts, `init`, and expanded `validate`. Both precede ledger
+increment 3. Recorded retry-bound and failure-exit blockers remain gates for 20.
 
 ## Design amendments incorporated into the design
 
@@ -82,7 +87,8 @@ row further by behavior rather than omitting verification.
 | 1 | Package and CI: setuptools, console entry point, README, local tests/lint. | Install without ChemGraph; wheel/import/CLI smoke checks; compatible dependency ranges; Linux/macOS Python 3.11/3.13 CI. |
 | 2a | Campaign configuration and static adapter capabilities; read-only `validate`. | Strict settings/resources; explicit backend kind; billing constraints; required wake limits; forbidden credential names; reject deferred wake/stop sections; no state or external calls. |
 | CG1 | Early ChemGraph CLI/MCP contract probe, after 2a and before 2b. | Hermetic fake-CLI tests; opt-in real CLI with a loopback fake model and diagnostic MCP; inspect exact tool set, proposal payloads, reconnect identity, and model-request counts; no campaign execution or core ChemGraph imports. |
-| 2b | Target, template and action contracts; `init` and expanded `validate`. | Compatible IRI target format; strict parameter/resource contracts; scaffolded configuration validates; no approval, rendering or execution. Complete before PR3. |
+| 2b1 | Shared proposal contracts and ChemGraph transport. | Strict `kind`-discriminated actions, JSON params/resources, shared MCP schema; real CLI delivers all four kinds unchanged; existing compatibility blockers remain visible; no action effects. |
+| 2b2 | Target and template contracts; `init` and expanded `validate`. | Compatible IRI target format; strict template parameter contracts; scaffolded configuration validates; no approval, rendering or execution. Complete before ledger increment 3. |
 | 3 | Transactional store and ledger: schema version, WAL, revisions, campaign revision, reserve/settle. | Concurrent approval cannot overspend; settlement is idempotent; unknown usage retains its charge; integer node-seconds internally. |
 | 4 | Manifests and rendering: `approve-plan`, execution identity, immutable snapshots, JSON data mapping. | Target/template changes invalidate approval; validator-only edits preserve computation identity; traversal/symlinks/tampering/injection tested. |
 | 5 | Operation journal and operator evidence: transitions, `approve`, `reject`, `confirm-nonexecution`, `abandon`. | Interrupted submission becomes uncertain; confirmation requires evidence and renewed review; abandonment retains charges and blocks replacement work. |

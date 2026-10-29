@@ -14,6 +14,8 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 import pytest
 
+from watchkeeper.actions import ProposalRequest
+
 
 ROOT = Path(__file__).resolve().parents[1]
 pytestmark = pytest.mark.skipif(sys.platform not in {"linux", "darwin"}, reason="POSIX probe")
@@ -57,6 +59,14 @@ def test_fake_cli_full_contract(harness, executable, tmp_path, monkeypatch):
     proposal = requests[0]["body"]["tools"][1]["function"]["parameters"]
     assert set(proposal["required"]) == {"request_id", "actions"}
     assert proposal["additionalProperties"] is False
+    assert proposal == ProposalRequest.model_json_schema()
+    proposal["properties"]["actions"]["items"]["discriminator"]["propertyName"] = "type"
+    mismatch = harness.inspect_case("success", success["process"], requests,
+                                    success["events"], success["probe_id"], 6)
+    assert "proposal_schema" in mismatch["blockers"]
+    delivered = next(e["arguments"] for e in success["events"]
+                     if e["event"] == "propose_actions")
+    assert [a["kind"] for a in delivered["actions"]] == ["run", "note", "ask_human", "stop"]
     events = [dict(e) for e in success["events"]]
     events[-1]["probe_id"] = "wrong-identity"
     mismatch = harness.inspect_case("success", success["process"], requests, events,
@@ -97,11 +107,20 @@ def test_missing_version_is_observed_not_invented(harness, executable, tmp_path)
 def test_request_count_and_identity_cannot_pass_without_evidence(harness):
     result = {"outcome": "exited", "exit": 0}
     case = harness.inspect_case("success", result, [], [], "identity", 6)
-    assert {"observable_requests", "request_bound", "tool_isolation", "brief",
+    assert {"observable_requests", "request_bound", "tool_isolation", "proposal_schema", "brief",
             "proposal", "reconnect_identity"} <= set(case["blockers"])
 
 
-def test_mcp_rejects_malformed_and_preserves_literal_data(tmp_path):
+def test_transmitted_schema_may_omit_annotations_but_not_constraints(harness):
+    schema = ProposalRequest.model_json_schema()
+    del schema["description"]  # ChemGraph moves the model description out of parameters.
+    del schema["title"]
+    assert harness.proposal_schema_matches(schema)
+    schema["properties"]["actions"]["minItems"] = 0
+    assert not harness.proposal_schema_matches(schema)
+
+
+def test_mcp_rejects_malformed_and_preserves_literal_data(harness, tmp_path):
     observations = tmp_path / "events.jsonl"
     identity = "probe 'with spaces; $(touch NEVER)'"
 
@@ -112,11 +131,19 @@ def test_mcp_rejects_malformed_and_preserves_literal_data(tmp_path):
         async with stdio_client(params) as io:
             async with ClientSession(*io) as session:
                 await session.initialize()
+                tools = (await session.list_tools()).tools
+                assert next(t.inputSchema for t in tools if t.name == "propose_actions") == (
+                    ProposalRequest.model_json_schema())
                 for args in ({}, {"request_id": "", "actions": []},
                              {"request_id": "r", "actions": [{"type": "run", "text": "x"}]},
+                             {"request_id": "r", "actions": [{"kind": "run", "template": "t"}]},
                              {"request_id": "r", "actions": [], "extra": True}):
                     assert (await session.call_tool("propose_actions", args)).isError
-                payload = {"request_id": "r", "actions": [{"type": "note", "text": identity}]}
+                payload = json.loads(json.dumps(harness.PROPOSAL))
+                payload["actions"][1]["text"] = identity
+                malformed = json.loads(json.dumps(payload))
+                malformed["actions"][0]["resources"]["nodes"] = True
+                assert (await session.call_tool("propose_actions", malformed)).isError
                 for _ in range(2):
                     reply = await session.call_tool("propose_actions", payload)
                     assert not reply.isError
@@ -128,6 +155,7 @@ def test_mcp_rejects_malformed_and_preserves_literal_data(tmp_path):
     assert all(e["probe_id"] == identity for e in events)
     assert [e["arguments"] for e in events if e["event"] == "propose_actions"] == [payload] * 2
     assert events[-1]["event"] == "eof"
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["events.jsonl"]
 
 
 @pytest.mark.parametrize("leader_exits", [False, True])

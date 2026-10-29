@@ -140,9 +140,35 @@ These checks do not inspect environment values or establish runtime isolation.
 
 `[stop]` and `[wake]` are currently rejected, including empty sections. Stop-rule
 configuration belongs to lifecycle increment 11; wake-trigger configuration
-belongs to decision-event/headless increments 12/16. Target/template/action
-contracts and `init` belong to increment 2b. The remaining design below describes
-future behavior, not guarantees provided by configuration validation.
+belongs to decision-event/headless increments 12/16. Proposal shapes are
+implemented in 2b1 below; target/template contracts and `init` belong to 2b2.
+
+### Implemented proposal contracts (roadmap 2b1)
+
+`watchkeeper.actions.ProposalRequest` validates proposal data with
+`model_validate(data)` or `model_validate_json(text)` and exports its tool schema
+with `model_json_schema()`. Validation raises Pydantic `ValidationError`. There
+is no installed proposal command or production MCP server yet.
+
+The envelope requires a nonblank `request_id` and a nonempty, ordered `actions`
+list. Each action requires its `kind` discriminator and every field shown:
+
+- `run`: `{kind:"run", template, params, resources:{nodes, walltime_s, queue}, rationale}`.
+- `note`: `{kind:"note", text}`.
+- `ask_human`: `{kind:"ask_human", question}`.
+- `stop`: `{kind:"stop", reason}`.
+
+The named text fields are nonblank strings preserved exactly as supplied. Resource
+counts are positive integers; booleans and numeric strings are rejected. `params`
+is a JSON object (possibly empty), with string keys and nested JSON values;
+nonfinite numbers and non-JSON Python values are rejected. Envelope, action and
+resource models reject unknown fields. The schema uses a `kind`-discriminated
+union, shared by the diagnostic ChemGraph MCP fixture.
+
+These checks establish shape only. Template existence/parameter contracts,
+envelope limits (including `max_actions_per_wake`), request replay, approval and
+execution remain later increments. Parameters are data and cannot override the
+separate resource fields. Validation creates no state or action effects.
 
 ### Approval and execution contracts (future)
 
@@ -156,11 +182,12 @@ future behavior, not guarantees provided by configuration validation.
 - Store collected files under `runs/<op_id>/outputs/` and approved validators under `runs/<op_id>/validator/`. Output collection cannot overwrite inputs, validators, database files or other runs. Reject path traversal and symlink escapes.
 - After a manifest change, reapproval alone does not rewrite pending operations. Before staging/submission, require the snapshot's execution-affecting configuration to match the current approved configuration; mismatches await operator review. Validator-only changes preserve computation identity and use the explicit revalidation path for existing results.
 
-**Action schema (v1):**
-- `run`: `{kind:"run", template, params, resources:{nodes, walltime_s, queue}, rationale}`
-- `note`: `{kind:"note", text}` (the campaign notebook, the agent's memory across wakes)
-- `ask_human`: `{kind:"ask_human", question}`. The question is stored with an id; the operator answers with `watchkeeper answer QID TEXT`. The answer is recorded transactionally, creates one `human_answer` wake trigger (consumed once), and appears in the next brief.
-- `stop`: `{kind:"stop", reason}`
+**Future effects of the [action contracts](#implemented-proposal-contracts-roadmap-2b1):**
+`run` proposes computation, `note` writes the campaign notebook, and `stop`
+requests draining. `ask_human` stores a question with an id; the operator answers
+with `watchkeeper answer QID TEXT`. The answer is recorded transactionally,
+creates one `human_answer` wake trigger (consumed once), and appears in the next
+brief. None of these effects is implemented by proposal validation.
 
 Cancelling a job is operator-only in v1.
 
@@ -412,10 +439,12 @@ supports an otherwise unknown model with an explicit base URL. Verify installed
 CLI flags before the probe; record unsupported behavior as incompatibility.
 
 **Diagnostic MCP only.** Expose fixture `get_brief` and `propose_actions` tools;
-the scripted model reads the brief and proposes a harmless `note` with a required
-request ID. Record the exact payload and return a diagnostic acknowledgement,
-never an approval/disposition. Use a fixed probe schema, clearly separate from
-production action validation until 2b lands. The fixture has no campaign path,
+the scripted model reads the brief and proposes one batch containing `run`,
+`note`, `ask_human` and `stop`, with a required request ID. Since 2b1 the fixture
+uses `ProposalRequest` for both its advertised schema and validation, replacing
+CG1's original diagnostic-only `{type:"note"}` shape. Record the exact payload
+and return a diagnostic acknowledgement, never an approval/disposition or any
+action effects. The fixture has no campaign path,
 database, backend, dispatcher, token cache, or submission code. It records only
 probe artifacts; duplicate calls are observations, not a substitute request
 journal. Serialize launch arguments as data, use subprocess argv without a
@@ -432,8 +461,10 @@ tests in 6, 15–18, and 20.
 **Acceptance scenarios.** The fake model captures every request and tool schema,
 returns scripted tool calls, and supports success, continued tool-loop, and
 provider-error responses. Assert that only the diagnostic MCP tools reach the
-model, the expected proposal reaches the fixture, and EOF/reconnects preserve
-probe identity. Inspect actual provider-request counts, including retries and
+model, the shared proposal schema survives transport (allowing inlined references
+and omitted title/description annotations), the entire mixed batch reaches the
+fixture unchanged, and EOF/reconnects preserve probe identity. Inspect actual
+provider-request counts, including retries and
 error paths: passing `--recursion-limit N` alone does not prove a model-call
 bound. Report any excess or unobservable count as an unresolved adapter blocker;
 never weaken the production bound to make the probe pass. Include missing CLI,
@@ -487,8 +518,8 @@ Every foreground invocation has a timeout and POSIX group cleanup, including
 help/version. The diagnostic MCP fixture also has an explicit absolute deadline
 because MCP clients may launch it in another process group. This bounds the
 cooperative fixture while stdin remains open; it is not durable crash recovery
-or containment of arbitrary detached processes. Linux/macOS only. No new
-installed Watchkeeper API or command is exposed.
+or containment of arbitrary detached processes. Linux/macOS only. The probe adds
+no installed command; the shared proposal models are the package API from 2b1.
 
 **Notifier:** `log` plus a generic `command` notifier (runs a user script, e.g. a Discord webhook `curl`). Dedicated Discord or Slack adapters come later. Messages say what is needed: pending approvals with their exact commands, a batch summary, and, for interactive campaigns, "resume with: continue campaign <name>".
 
