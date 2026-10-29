@@ -61,7 +61,7 @@ Separate installed-CLI/fake-model evidence on macOS:
 - Invocation: the documented command with this executable/provenance,
   `--recursion-limit 6 --timeout 30`, and a new local artifact directory.
   Fresh HOME/configuration, loopback services, and a dummy key were used.
-  Final local artifacts: `/private/tmp/watchkeeper-cg1-release-evidence/`.
+  Final local artifacts: `/private/tmp/watchkeeper-cg1-release-evidence-r2/`.
 - Success: 3 HTTP requests, exactly the two diagnostic tools, expected note
   payload, discovery/calls across three MCP processes with the same identity,
   EOF observations, and exit 0. Malformed arguments were rejected (2 requests).
