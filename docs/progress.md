@@ -19,9 +19,10 @@ Last updated: 2026-10-28.
   implements CG1 and merged on 2026-10-28: a developer-only CLI/MCP probe, with
   hermetic fake-CLI tests and a separate opt-in installed-CLI run. See
   [probe usage](design.md#running-the-cg1-probe). No production adapter is enabled.
-- Increment 2b1 adds shared proposal models and exercises all four action kinds
-  through that diagnostic probe. Target/template contracts and scaffolding are
-  the next focused increment, 2b2.
+- [PR #4: shared proposal contracts](https://github.com/tdpham2/watchkeeper/pull/4)
+  implements 2b1 and is open for review: shared proposal models and all four
+  action kinds exercised through the diagnostic probe. Target/template contracts
+  and scaffolding are the next focused increment, 2b2.
 - No campaign execution behavior is implemented. Available commands are
   help/version and campaign configuration validation only.
 
@@ -49,8 +50,8 @@ Local verification on macOS completed successfully:
   exclusion of developer tools/tests were verified. Dependency checks passed for
   both editable environments and the clean wheel environment.
 - Local documentation links, anchors, code fences and `git diff --check` passed.
-  These results are local; the implementation PR's checks provide remote CI
-  evidence.
+  These results are local; the [PR4 checks](https://github.com/tdpham2/watchkeeper/pull/4/checks)
+  provide remote CI evidence.
 
 Separate installed-CLI/fake-model evidence on macOS:
 
