@@ -1,7 +1,8 @@
 # Watchkeeper implementation roadmap
 
-Status: approved direction; PR1 is merged and configuration is split into 2a/2b.
-ChemGraph contract testing (CG1) is the next implementation priority after 2a.
+Status: PR1 and configuration 2a are merged. CG1 is implemented for review;
+configuration 2b is next after CG1 merges. See the handoff for validation evidence
+and ChemGraph compatibility blockers.
 These are roadmap identifiers, not guaranteed GitHub PR numbers. This roadmap was
 adapted for the standalone `tdpham2/watchkeeper` repository on 2026-10-28.
 See [progress](progress.md) for the current handoff and [design](design.md) for
@@ -35,7 +36,8 @@ already-installed real ChemGraph CLI against a loopback fake model endpoint,
 allowing actual tool schemas and model requests to be inspected without a live
 LLM, HPC credentials, model downloads, or a ChemGraph checkout. See the
 [contract probe design](design.md#early-chemgraph-contract-probe-cg1) for the
-boundary, scenarios, and evidence required. This harness is not implemented yet.
+boundary, scenarios, evidence, and developer invocation. The harness is implemented;
+it does not establish production-adapter readiness.
 
 Keep the store, reservation, manifest, request journal, dispatcher, wake fencing,
 and process-recovery dependencies intact. CG1 records protocol observations only;

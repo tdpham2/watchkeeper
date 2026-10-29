@@ -20,6 +20,10 @@ recovery is deferred.
 - [Progress](docs/progress.md): completed work, verification, and the next step.
 - [Agent guidance](AGENTS.md): instructions for working directly in this repo.
 
+A developer-only [ChemGraph contract probe](docs/design.md#running-the-cg1-probe)
+checks an explicitly selected CLI against fake local model/MCP services.
+It is separate from campaign execution; ordinary tests require no ChemGraph.
+
 ## Execution boundary
 
 The intended headless adapters expose only Watchkeeper MCP tools and use a

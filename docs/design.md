@@ -393,8 +393,8 @@ There is no submit tool.
 
 ### Early ChemGraph contract probe (CG1)
 
-Planned next after configuration increment 2a; not currently implemented. Add
-`tools/chemgraph_contract.py` with test fixtures outside the package runtime.
+Implemented by `tools/chemgraph_contract.py` with diagnostic and test fixtures
+outside the package runtime; see [usage and evidence](#running-the-cg1-probe).
 It accepts an explicit installed ChemGraph executable; never import ChemGraph
 in Watchkeeper, require its checkout, auto-install it, or expose a new installed
 `watchkeeper` command. Ordinary CI exercises fake executables, the diagnostic
@@ -451,6 +451,44 @@ real-CLI/fake-model pass proves neither provider authentication nor campaign
 durability. At 20, reuse the verified launch/transport contracts in the runtime
 adapter and replace diagnostic fixtures with the real wake journal and MCP
 server. Do not maintain the harness as an alternative campaign runner.
+
+#### Running the CG1 probe
+
+From a development checkout with the test dependencies installed:
+
+```bash
+.venv/bin/python tools/chemgraph_contract.py \
+  --chemgraph /absolute/path/to/chemgraph \
+  --provenance 'installed version/commit, or unknown' \
+  --output .cg1-artifacts/run-1 --recursion-limit 6 --timeout 30
+```
+
+This invocation opts into running that executable; it never installs ChemGraph.
+The output directory must be new. `.cg1-artifacts/` is ignored by Git. The tools
+ship in the source distribution, not the installed wheel. Ordinary `pytest`
+runs use fake CLIs only, including actual loopback HTTP and stdio MCP transports.
+
+`result.json` records supplied provenance separately from the observed
+`--version` response (unsupported version flags remain visible), CLI arguments,
+bounded log excerpts, tool names, MCP events, counts, checks, and blockers.
+Per-case request files retain the exact model bodies/tool schemas, without HTTP
+headers. Scratch configuration, HOME, and CLI-created state are removed. These
+are local diagnostic artifacts; only sanitized findings belong in the handoff.
+
+The success, malformed-argument, and failed-startup cases use the requested graph
+limit. Tool-loop and HTTP 500 cases each run at limit 1 and the requested limit,
+counting retries individually. Exit 0 from the harness means its observed checks
+passed; exit 1 reports compatibility blockers. A zero CLI exit after an injected
+provider/recursion failure is a blocker, not successful completion. An absent
+request count cannot establish a bound. These observations are not a proof for
+untested providers or CLI versions.
+
+Every foreground invocation has a timeout and POSIX group cleanup, including
+help/version. The diagnostic MCP fixture also has an explicit absolute deadline
+because MCP clients may launch it in another process group. This bounds the
+cooperative fixture while stdin remains open; it is not durable crash recovery
+or containment of arbitrary detached processes. Linux/macOS only. No new
+installed Watchkeeper API or command is exposed.
 
 **Notifier:** `log` plus a generic `command` notifier (runs a user script, e.g. a Discord webhook `curl`). Dedicated Discord or Slack adapters come later. Messages say what is needed: pending approvals with their exact commands, a batch summary, and, for interactive campaigns, "resume with: continue campaign <name>".
 
