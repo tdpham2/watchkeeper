@@ -10,7 +10,8 @@ ChemGraph or depend on a particular agent or scientific domain.
 
 ## Development status
 
-The package provides help/version and read-only campaign configuration validation.
+The package provides help/version, read-only campaign configuration validation,
+and [proposal data models](docs/design.md#implemented-proposal-contracts-roadmap-2b1).
 Campaign execution is not implemented. There is no supported PyPI release.
 Linux and macOS are the initial execution targets; Windows headless process
 recovery is deferred.
@@ -61,7 +62,8 @@ readiness. No target or template files are needed for this validation step.
 
 The [configuration contract](docs/design.md#implemented-campaign-configuration-roadmap-2a)
 lists all supported fields, defaults, and billing restrictions. Unknown fields,
-including `[wake]` and `[stop]`, are rejected. `init`, target/template/action
+including `[wake]` and `[stop]`, are rejected. Proposal shapes can be validated
+through the Python API and the developer ChemGraph probe. `init`, target/template
 validation, and campaign execution remain future increments.
 
 ## Development

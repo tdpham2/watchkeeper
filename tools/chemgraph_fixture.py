@@ -8,30 +8,27 @@ import os
 from pathlib import Path
 import signal
 import time
-from typing import Literal
 
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import Tool
-from pydantic import BaseModel, ConfigDict, Field
+
+from watchkeeper.actions import ProposalRequest
 
 
 PROPOSAL = {
-    "request_id": "cg1-note-1",
-    "actions": [{"type": "note", "text": "CG1 diagnostic note."}],
+    "request_id": "cg1-actions-1",
+    "actions": [
+        {"kind": "run", "template": "diagnostic", "params": {
+            "literal": "  'quoted'; $(touch NEVER); `touch NEVER`\n",
+            "nested": [1, 1.25, True, None, {"label": "diagnostic"}],
+        }, "resources": {"nodes": 1, "walltime_s": 60, "queue": "debug"},
+         "rationale": "Record this proposal only; do not execute it."},
+        {"kind": "note", "text": "CG1 diagnostic note."},
+        {"kind": "ask_human", "question": "Diagnostic question; do not create a task."},
+        {"kind": "stop", "reason": "Diagnostic proposal batch complete."},
+    ],
 }
-
-
-class Note(BaseModel):
-    model_config = ConfigDict(extra="forbid", strict=True)
-    type: Literal["note"]
-    text: str
-
-
-class Proposal(BaseModel):
-    model_config = ConfigDict(extra="forbid", strict=True)
-    request_id: str = Field(min_length=1)
-    actions: list[Note] = Field(min_length=1, max_length=1)
 
 
 async def serve(path: Path, probe_id: str, fail_startup: bool = False) -> None:
@@ -53,15 +50,15 @@ async def serve(path: Path, probe_id: str, fail_startup: bool = False) -> None:
             Tool(name="get_brief", description="Read a diagnostic brief.",
                  inputSchema={"type": "object", "properties": {},
                               "additionalProperties": False}),
-            Tool(name="propose_actions", description="Record a diagnostic note only.",
-                 inputSchema=Proposal.model_json_schema()),
+            Tool(name="propose_actions", description="Record proposals for diagnostics only; no action effects.",
+                 inputSchema=ProposalRequest.model_json_schema()),
         ]
 
     @server.call_tool(validate_input=False)
     async def call_tool(name, arguments):
         try:
             if name == "propose_actions":
-                Proposal.model_validate(arguments)
+                ProposalRequest.model_validate(arguments)
             elif name != "get_brief" or arguments:
                 raise ValueError("Unknown tool or invalid brief arguments")
         except ValueError:

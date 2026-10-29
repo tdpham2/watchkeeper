@@ -18,6 +18,7 @@ import time
 from uuid import uuid4
 
 from chemgraph_fixture import PROPOSAL
+from watchkeeper.actions import ProposalRequest
 
 
 TOOLS = {"get_brief", "propose_actions"}
@@ -114,6 +115,28 @@ def model_endpoint(scenario, requests):
         thread.join()
 
 
+def proposal_schema_matches(schema):
+    """Compare validation rules despite inlined refs and omitted annotations."""
+    def normalize(node, root):
+        if isinstance(node, list):
+            return [normalize(item, root) for item in node]
+        if not isinstance(node, dict):
+            return node
+        if "$ref" in node:
+            prefix, name = node["$ref"].rsplit("/", 1)
+            if prefix != "#/$defs":
+                raise ValueError("Unexpected schema reference")
+            node = root["$defs"][name] | {k: v for k, v in node.items() if k != "$ref"}
+        return {k: normalize(v, root) for k, v in node.items()
+                if k not in {"$defs", "title", "description"}}
+
+    expected = ProposalRequest.model_json_schema()
+    try:
+        return normalize(schema, schema) == normalize(expected, expected)
+    except (KeyError, TypeError, ValueError, RecursionError):
+        return False
+
+
 def inspect_case(scenario, result, requests, events, probe_id, limit):
     schemas = [[t.get("function", {}) for t in r["body"].get("tools", [])]
                for r in requests]
@@ -126,6 +149,10 @@ def inspect_case(scenario, result, requests, events, probe_id, limit):
         checks["observable_requests"] = bool(requests)
         checks["request_bound"] = 0 < len(requests) <= limit
         checks["tool_isolation"] = bool(names) and all(set(n) == TOOLS for n in names)
+        proposals = [[t.get("parameters") for t in tools if t.get("name") == "propose_actions"]
+                     for tools in schemas]
+        checks["proposal_schema"] = bool(proposals) and all(
+            len(p) == 1 and proposal_schema_matches(p[0]) for p in proposals)
         checks["protocol"] = all(r["path"] == "/v1/chat/completions" and
                                  not r["body"].get("stream") for r in requests)
     if scenario == "success":
@@ -203,7 +230,8 @@ def probe(executable: Path, output: Path, *, limit=6, timeout=30,
                             "--config", str(config), "--model", "watchkeeper-cg1",
                             "--base-url", url, "--recursion-limit", str(case_limit),
                             "--mcp-command", shlex.join(mcp), "--query",
-                            "Read the diagnostic brief, propose one note, then finish."]
+                            "Read the diagnostic brief, propose a diagnostic batch of "
+                            "run, note, ask_human and stop actions, then finish."]
                     result = run_process(argv, directory, env, timeout, "cli")
                 events = ([json.loads(line) for line in observations.read_text().splitlines()]
                           if observations.exists() else [])
