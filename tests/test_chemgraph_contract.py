@@ -5,6 +5,7 @@ import importlib
 import json
 from pathlib import Path
 import signal
+import socket
 import subprocess
 import sys
 import time
@@ -36,6 +37,9 @@ def executable(tmp_path):
 
 
 def test_fake_cli_full_contract(harness, executable, tmp_path, monkeypatch):
+    def no_dns(*args):
+        pytest.fail("Loopback fixture startup must not perform DNS lookups")
+    monkeypatch.setattr(socket, "getfqdn", no_dns)
     scratch = tmp_path / "scratch 'with spaces"
     scratch.mkdir()
     monkeypatch.setattr(harness.tempfile, "tempdir", str(scratch))
@@ -129,7 +133,6 @@ def test_mcp_rejects_malformed_and_preserves_literal_data(tmp_path):
 @pytest.mark.parametrize("leader_exits", [False, True])
 def test_process_cleanup_includes_descendants(harness, tmp_path, leader_exits):
     # Child holds a TCP listener; successful rebinding proves it stopped serving.
-    import socket
     child = """import socket, pathlib, time
 s = socket.socket()
 s.bind(('127.0.0.1', 0))

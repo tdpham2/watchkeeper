@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import shlex
 import signal
+from socketserver import TCPServer
 import subprocess
 import sys
 import tempfile
@@ -95,7 +96,14 @@ def model_endpoint(scenario, requests):
             self.end_headers()
             self.wfile.write(data)
 
-    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    class LoopbackServer(ThreadingHTTPServer):
+        def server_bind(self):
+            # HTTPServer's default bind does a reverse DNS lookup. The fixture
+            # already knows its address; startup must not depend on a resolver.
+            TCPServer.server_bind(self)
+            self.server_name, self.server_port = self.server_address
+
+    server = LoopbackServer(("127.0.0.1", 0), Handler)
     thread = Thread(target=server.serve_forever, daemon=True)
     thread.start()
     try:
@@ -185,12 +193,12 @@ def probe(executable: Path, output: Path, *, limit=6, timeout=30,
                 observations = directory / "observations.jsonl"
                 probe_id = str(uuid4())
                 mcp = [sys.executable, str(Path(__file__).with_name("chemgraph_fixture.py")),
-                       "--observations", str(observations), "--probe-id", probe_id,
-                       "--deadline", str(time.monotonic() + timeout)]
+                       "--observations", str(observations), "--probe-id", probe_id]
                 if scenario == "failed_mcp":
                     mcp.append("--fail-startup")
                 requests = []
                 with model_endpoint(scenario, requests) as url:
+                    mcp.extend(["--deadline", str(time.monotonic() + timeout)])
                     argv = [str(executable), "run", "--workflow", "single_agent",
                             "--config", str(config), "--model", "watchkeeper-cg1",
                             "--base-url", url, "--recursion-limit", str(case_limit),

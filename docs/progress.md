@@ -42,6 +42,10 @@ Local verification on macOS:
 - Timeout tests cover a live CLI, a leader that exits leaving a child, and a
   diagnostic MCP process whose stdin remains open. The latter requires a POSIX
   timer: asyncio cancellation alone does not interrupt the SDK's stdin reader.
+- CI exposed a startup-order issue: the MCP deadline preceded HTTP fixture
+  setup. The loopback server now avoids HTTPServer's reverse DNS lookup, and
+  the deadline starts immediately before CLI launch; the tests forbid DNS
+  lookup during fixture startup. Deadline expiry retains a diagnostic stack.
 
 These are local results; the [PR3 checks](https://github.com/tdpham2/watchkeeper/pull/3/checks)
 provide Linux/macOS CI evidence.
