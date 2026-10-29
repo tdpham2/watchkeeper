@@ -5,21 +5,79 @@ Last updated: 2026-10-28.
 ## Current handoff
 
 - Repository: https://github.com/tdpham2/watchkeeper
-- Local checkout: `/Users/tpham2/work/projects/watchkeeper`.
-- Implementation branch: `feature/campaign-config`, based on merged PR1 at
-  `74b9bab` on `main`.
+- Implementation checkout: `/Users/tpham2/.codex/worktrees/71d0/watchkeeper`.
+- Implementation branch: `feature/chemgraph-contract`, based on merged PR2 at
+  `a369a97` on `main`.
 - [PR #1: package scaffold and CI](https://github.com/tdpham2/watchkeeper/pull/1)
   merged on 2026-10-28; all four Linux/macOS Python 3.11/3.13 CI jobs passed.
 - [PR #2: campaign configuration](https://github.com/tdpham2/watchkeeper/pull/2)
-  implements roadmap increment 2a and is open for review, not merged:
+  implements roadmap increment 2a and merged on 2026-10-28:
   strict campaign configuration and read-only `watchkeeper validate`.
 - The [design](design.md) documents the supported schema; the
   [roadmap](implementation-plan.md) splits configuration into 2a/2b.
-- Early ChemGraph integration is now the next priority after 2a: a separate CG1
-  contract-probe PR, before 2b. The plan is documented; no harness or actual
-  ChemGraph integration test has been implemented or run yet.
+- [PR #3: ChemGraph contract probe](https://github.com/tdpham2/watchkeeper/pull/3)
+  implements CG1 and is open for review: a developer-only CLI/MCP probe, with
+  hermetic fake-CLI tests and a separate opt-in installed-CLI run. See
+  [probe usage](design.md#running-the-cg1-probe). No production adapter is enabled.
 - No campaign execution behavior is implemented. Available commands are
   help/version and campaign configuration validation only.
+
+## CG1 verification and compatibility findings
+
+The probe exposes only diagnostic `get_brief` and `propose_actions` tools. It
+records a note, request ID, and identity across server processes without any
+campaign state or dispatcher. Ordinary tests use fake executables and real local
+HTTP/MCP transports; actual ChemGraph is never a test-suite dependency.
+
+Local verification on macOS:
+
+- Ruff passed; Python 3.11.13 and 3.13.2 each passed all 136 tests.
+- Source distribution and wheel built successfully. The source archive includes
+  the developer tools and fake-CLI fixture; the wheel contains only the package.
+- A clean `.venv-wheel-cg1` installed the wheel/test extras without ChemGraph.
+  All 136 tests from the extracted source archive passed outside the checkout;
+  wheel import/help/version and the absence of ChemGraph were verified there.
+- Dependency checks passed for both editable environments and the clean wheel.
+  Local documentation links, anchors, code fences, and `git diff --check` passed.
+- Timeout tests cover a live CLI, a leader that exits leaving a child, and a
+  diagnostic MCP process whose stdin remains open. The latter requires a POSIX
+  timer: asyncio cancellation alone does not interrupt the SDK's stdin reader.
+- CI exposed a startup-order issue: the MCP deadline preceded HTTP fixture
+  setup. The loopback server now avoids HTTPServer's reverse DNS lookup, and
+  the deadline starts immediately before CLI launch; the tests forbid DNS
+  lookup during fixture startup. Deadline expiry retains a diagnostic stack.
+
+These are local results; the [PR3 checks](https://github.com/tdpham2/watchkeeper/pull/3/checks)
+provide Linux/macOS CI evidence.
+
+Separate installed-CLI/fake-model evidence on macOS:
+
+- Executable: `/opt/anaconda3/bin/chemgraph`, installed metadata version 0.7.0.
+  The editable install points to commit
+  `0c0a76cc76700f04621914e964a882855e5862b3` with clean tracked files (an unrelated
+  untracked directory was present). This differs from the design's pinned source
+  baseline. No ChemGraph files were changed. `--version` is unsupported; the
+  report preserves that failure and records supplied provenance separately.
+- Invocation: the documented command with this executable/provenance,
+  `--recursion-limit 6 --timeout 30`, and a new local artifact directory.
+  Fresh HOME/configuration, loopback services, and a dummy key were used.
+  Final local artifacts: `/private/tmp/watchkeeper-cg1-release-evidence-r2/`.
+- Success: 3 HTTP requests, exactly the two diagnostic tools, expected note
+  payload, discovery/calls across three MCP processes with the same identity,
+  EOF observations, and exit 0. Malformed arguments were rejected (2 requests).
+  Failed MCP startup made no model requests and exited 1.
+- Continued tool-loop requests: 1 at graph limit 1 and 2 at graph limit 6.
+  Both exited 0, so exhaustion cannot be classified from the exit code alone.
+- HTTP 500 injection: 3 requests at each graph limit (1 and 6), including
+  retries. Both exited 0 despite provider failure. The limit-1 case exceeds the
+  proposed model-request bound. The harness correctly exits 1 and reports these
+  incompatibilities; this is **not** a full compatibility pass.
+
+Production adapter 20 remains blocked on the request bound and reliable failure
+classification. Resolve or explicitly verify those contracts before enabling
+it; do not relax the bound. CG1 itself records findings, so independent core work
+can continue. No provider authentication, live LLM/HPC services, campaign
+durability, or production process recovery was tested.
 
 ## Configuration verification (2a)
 
@@ -46,9 +104,8 @@ runtime enforcement remain future work. No live LLM/HPC services were used.
 Consult the [PR2 checks](https://github.com/tdpham2/watchkeeper/pull/2/checks) for
 current remote Linux/macOS Python 3.11/3.13 results; the evidence above is local.
 
-The CG1 planning update was checked against the pinned ChemGraph CLI, MCP client,
-and custom model-endpoint source. Documentation links, anchors, code fences, and
-`git diff --check` passed. This was source inspection, not an installed-CLI run.
+The earlier CG1 planning update inspected the pinned ChemGraph source only.
+The separate installed-CLI findings above are new evidence from this increment.
 
 ## PR1 verification
 
@@ -72,20 +129,11 @@ macOS results; they do not claim Linux execution of increment 2a.
 ## Continue here next time
 
 Open this repository directly and read `AGENTS.md`. The editable development
-environment is `.venv`; `.venv-313`, `.venv-wheel`, and `.venv-wheel-config` are
-local verification environments, all ignored by Git.
+environment is `.venv`; `.venv-313` and `.venv-wheel-cg1` are local verification
+environments, all ignored by Git.
 
-Review and merge PR2/increment 2a, then branch from current `main` for **CG1**:
-the developer-only ChemGraph CLI/MCP contract probe described in the design.
-Use fake CLIs in ordinary tests; provide an opt-in real installed ChemGraph run
-against a loopback fake model and diagnostic MCP server. Verify tool isolation,
-proposal payloads, reconnect identity, actual model-request counts, and bounded
-exit/timeout behavior. No live provider, HPC credentials, campaign execution, or
-ChemGraph checkout is required. Record actual-CLI evidence separately from fake
-test results; CLI or request-bound incompatibilities remain explicit blockers
-for the production adapter.
-
-Then complete 2b (target/template/action contracts, `init`, expanded `validate`)
+Review and merge CG1, then branch from current `main` for **2b**:
+target/template/action contracts, `init`, and expanded `validate`. Complete 2b
 before ledger increment 3. Keep core increments 3–18 intact; implement production
 ChemGraph adapter 20 after 18 and before Claude adapter 19. Stop-rule fields
 belong to 11; wake-trigger fields belong to 12/16. The first live HPC pilot stays

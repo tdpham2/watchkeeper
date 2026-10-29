@@ -1,1 +1,3 @@
 include tests/conftest.py
+recursive-include tests/fixtures *.py
+recursive-include tools *.py
